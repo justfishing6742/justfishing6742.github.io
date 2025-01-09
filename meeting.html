@@ -147,12 +147,20 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/jsonwebtoken@8.5.1/index.min.js"></script>
     <script>
         let localStream = null;
         let peerConnections = {};
         let ws = null;
         let currentUserName = '';
         let isMuted = false;
+
+        // Function to generate JWT
+        function generateJWT(name) {
+            const payload = { name };
+            const secret = 'your-256-bit-secret'; // Replace with your actual secret key
+            return jwt.sign(payload, secret, { expiresIn: '1h' });
+        }
 
         // Initialize WebSocket connection and join room
         function initializeRoom(name) {
@@ -162,8 +170,11 @@
             // Add local participant
             addParticipant('me', name + ' (You)');
 
-            // Connect to signaling server
-            ws = new WebSocket('wss://vercel-server-l3b8yoyhv-cullen-harrisons-projects.vercel.app');
+            // Generate JWT
+            const token = generateJWT(name);
+
+            // Connect to signaling server with JWT
+            ws = new WebSocket(`wss://vercel-server-l3b8yoyhv-cullen-harrisons-projects.vercel.app?token=${token}`);
 
             ws.onopen = () => {
                 console.log('Connected to signaling server');
