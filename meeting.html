@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Chat Room</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            padding: 1.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .button {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .button:hover {
+            background-color: #f5f5f5;
+        }
+
+        .button-primary {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+        }
+
+        .button-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .name-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+        }
+
+        .participants-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .participant-card {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            background-color: #e0e0e0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .name {
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div id="nameModal" class="name-modal">
+        <div class="modal-content">
+            <h2 class="title">Enter your name</h2>
+            <input type="text" id="nameInput" class="input" placeholder="Your name">
+            <button id="joinButton" class="button button-primary">Join Room</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Voice Chat Room</h1>
+            <button id="copyLink" class="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy Room Link
+            </button>
+        </div>
+
+        <div id="participantsGrid" class="participants-grid">
+            <!-- Participants will be added here dynamically -->
+        </div>
+    </div>
+
+    <script>
+        let localStream = null;
+        let peerConnections = {};
+        let ws = null;
+        let currentUserName = '';
+        let isMuted = false;
+
+        // Initialize WebSocket connection and join room
+        function initializeRoom(name) {
+            currentUserName = name;
+            document.getElementById('nameModal').style.display = 'none';
+
+            // Add local participant
+            addParticipant('me', name + ' (You)');
+
+            // Connect to signaling server
+            ws = new WebSocket('wss://signal-server-cc9v7oslb-cullen-harrisons-projects.vercel.app');
+
+            ws.onopen = () => {
+                console.log('Connected to signaling server');
+                // Join room
+                ws.send(JSON.stringify({
+                    type: 'join-room',
+                    name: currentUserName,
+                    roomId: new URLSearchParams(window.location.search).get('room') || crypto.randomUUID()
+                }));
+            };
+
+            ws.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                
+                switch(message.type) {
+                    case 'user-joined':
+                        handleUserJoined(message.userId, message.name);
+                        break;
+                    case 'user-left':
+                        handleUserLeft(message.userId);
+                        break;
+                    case 'offer':
+                        handleOffer(message.userId, message.offer);
+                        break;
+                    case 'answer':
+                        handleAnswer(message.userId, message.answer);
+                        break;
+                    case 'ice-candidate':
+                        handleIceCandidate(message.userId, message.candidate);
+                        break;
+                }
+            };
+
+            // Get user's audio stream
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    localStream = stream;
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                    alert('Unable to access microphone. Please ensure you have granted permission.');
+                });
+        }
+
+        // Handle new user joining
+        async function handleUserJoined(userId, name) {
+            addParticipant(userId, name);
+
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            peerConnections[userId] = pc;
+
+            // Add local stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
+
+            // Handle ICE candidates
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    ws.send(JSON.stringify({
+                        type: 'ice-candidate',
+                        userId,
+                        candidate: event.candidate
+                    }));
+                }
+            };
+
+            // Handle remote stream
+            pc.ontrack = (event) => {
+                const audioEl = document.createElement('audio');
+                audioEl.srcObject = event.streams[0];
+                audioEl.autoplay = true;
+                document.getElementById(`participant-${userId}`).appendChild(audioEl);
+            };
+
+            // Create and send offer
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({
+                type: 'offer',
+                userId,
+                offer
+            }));
+        }
+
+        // Handle user leaving
+        function handleUserLeft(userId) {
+            if (peerConnections[userId]) {
+                peerConnections[userId].close();
+                delete peerConnections[userId];
+            }
+            const participantEl = document.getElementById(`participant-${userId}`);
+            if (participantEl) {
+                participantEl.remove();
+            }
+        }
+
+        // Handle received offer
+        async function handleOffer(userId, offer) {
+            const pc = peerConnections[userId];
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            ws.send(JSON.stringify({
+                type: 'answer',
+                userId,
+                answer
+            }));
+        }
+
+        // Handle received answer
+        async function handleAnswer(userId, answer) {
+            const pc = peerConnections[userId];
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+
+        // Handle ICE candidate
+        async function handleIceCandidate(userId, candidate) {
+            const pc = peerConnections[userId];
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        // Add participant to the grid
+        function addParticipant(id, name) {
+            const participantEl = document.createElement('div');
+            participantEl.id = `participant-${id}`;
+            participantEl.className = 'participant-card';
+            participantEl.innerHTML = `
+                <div class="avatar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+                <div class="name">${name}</div>
+                ${id === 'me' ? `
+                    <button class="button" onclick="toggleMute()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                ` : ''}
+            `;
+            document.getElementById('participantsGrid').appendChild(participantEl);
+        }
+
+        // Toggle mute/unmute
+        function toggleMute() {
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                });
+                isMuted = !isMuted;
+            }
+        }
+
+        // Copy room link
+        document.getElementById('copyLink').addEventListener('click', () => {
+            const link = window.location.href;
+            navigator.clipboard.writeText(link);
+            alert('Room link copied to clipboard!');
+        });
+
+        // Handle join button click
+        document.getElementById('joinButton').addEventListener('click', () => {
+            const name = document.getElementById('nameInput').value.trim();
+            if (name) {
+                initializeRoom(name);
+            }
+        });
+
+        // Handle enter key in name input
+        document.getElementById('nameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const name = e.target.value.trim();
+                if (name) {
+                    initializeRoom(name);
+                }
+            }
+        });
+
+        // Generate room ID if not present in URL
+        if (!new URLSearchParams(window.location.search).get('room')) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('room', crypto.randomUUID());
+            window.history.replaceState({}, '', newUrl);
+        }
+    </script>
+</body>
+</html>

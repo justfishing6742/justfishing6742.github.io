@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyPeerToPeer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #f4f4f4;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        main {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #previousMeetings {
+            margin-top: 2rem;
+        }
+        #aboutSection {
+            margin-top: 3rem;
+            background-color: #f9f9f9;
+            padding: 1rem;
+            border-radius: 5px;
+        }
+        #meetingMenu {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 1rem;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            z-index: 1000;
+        }
+        #meetingMenu input {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .meetingButton {
+            display: flex;
+            align-items: center;
+            margin-top: 1rem;
+        }
+        .meetingButton span {
+            margin-right: 1rem;
+        }
+        .meetingButton button {
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div id="accountInfo">
+            <button id="loginButton">Login</button>
+        </div>
+        <button id="manageAccount" style="display: none;">Manage Account</button>
+    </header>
+
+    <main>
+        <h1>EasyPeerToPeer</h1>
+        <button id="createMeeting">Create Meeting</button>
+
+        <div id="meetingArea">
+            <!-- Placeholder for the next page content -->
+        </div>
+
+        <div id="previousMeetings"></div>
+
+        <div id="aboutSection">
+            <h2>About EasyPeerToPeer</h2>
+            <p id="aboutContent" contenteditable="true">
+                Click here to edit the about section. Describe your EasyPeerToPeer service and its benefits.
+            </p>
+        </div>
+
+        <div id="meetingMenu">
+            <h2>Create Meeting</h2>
+            <input type="text" id="meetingName" placeholder="Meeting Name">
+            <button id="confirmMeeting">Okay</button>
+        </div>
+        <div id="confirmedMeeting"></div>
+    </main>
+
+    <script>
+        let isLoggedIn = false;
+
+        function checkLogin() {
+            if (!isLoggedIn) {
+                alert("Please create an account to continue.");
+                // Here you would typically show a sign-up form or redirect to a sign-up page
+            } else {
+                // Proceed to next page
+                document.getElementById('meetingArea').innerHTML = '<p>Loading meeting page...</p>';
+                // Here you would typically load the next page content
+            }
+        }
+
+        function updateUIForLoggedInUser() {
+            document.getElementById('loginButton').textContent = 'John Doe'; // Replace with actual user name
+            document.getElementById('manageAccount').style.display = 'block';
+            
+            // Populate previous meetings (up to 3)
+            const previousMeetings = document.getElementById('previousMeetings');
+            previousMeetings.innerHTML = `
+                <h3>Previous Meetings</h3>
+                <ul>
+                    <li>Meeting 1 - 2023-05-01</li>
+                    <li>Meeting 2 - 2023-05-05</li>
+                    <li>Meeting 3 - 2023-05-10</li>
+                </ul>
+                <button id="seeMoreMeetings">See More</button>
+            `;
+        }
+
+        function showMeetingMenu() {
+            document.getElementById('meetingMenu').style.display = 'block';
+        }
+
+        function hideMeetingMenu() {
+            document.getElementById('meetingMenu').style.display = 'none';
+        }
+
+        function confirmMeeting() {
+            const meetingName = document.getElementById('meetingName').value;
+            if (meetingName) {
+                alert(`Meeting "${meetingName}" created!`);
+                hideMeetingMenu();
+                displayConfirmedMeeting(meetingName);
+            } else {
+                alert("Please enter a meeting name.");
+            }
+        }
+
+        function displayConfirmedMeeting(meetingName) {
+            const confirmedMeeting = document.getElementById('confirmedMeeting');
+            confirmedMeeting.innerHTML = `
+                <div class="meetingButton">
+                    <span>${meetingName}</span>
+                    <button onclick="startMeeting()">▶️</button>
+                    <button onclick="deleteMeeting()">🗑️</button>
+                </div>
+            `;
+        }
+
+        function startMeeting() {
+            window.location.href = 'meeting.html'; // Navigate to the meeting page
+        }
+
+        function deleteMeeting() {
+            const confirmedMeeting = document.getElementById('confirmedMeeting');
+            confirmedMeeting.innerHTML = '';
+        }
+
+        // Event listeners
+        document.getElementById('createMeeting').addEventListener('click', showMeetingMenu);
+        document.getElementById('confirmMeeting').addEventListener('click', confirmMeeting);
+        document.getElementById('createMeeting').addEventListener('click', checkLogin);
+        document.getElementById('loginButton').addEventListener('click', () => {
+            isLoggedIn = true;
+            updateUIForLoggedInUser();
+        });
+    </script>
+</body>
+</html>
+
