@@ -148,6 +148,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
     <script>
         let localStream = null;
         let peerConnections = {};
@@ -155,6 +156,35 @@
         let currentUserName = '';
         let isMuted = false;
         let isHost = false;
+
+        // Function to generate JWT
+        function generateJWT(name) {
+            const header = {
+                alg: "HS256",
+                typ: "JWT"
+            };
+            const payload = {
+                name,
+                exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour expiration
+            };
+            const secret = 'your-256-bit-secret'; // Replace with your actual secret key
+
+            const base64UrlEncode = (obj) => {
+                return btoa(JSON.stringify(obj))
+                    .replace(/=/g, '')
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_');
+            };
+
+            const headerEncoded = base64UrlEncode(header);
+            const payloadEncoded = base64UrlEncode(payload);
+            const signature = CryptoJS.HmacSHA256(headerEncoded + "." + payloadEncoded, secret).toString(CryptoJS.enc.Base64)
+                .replace(/=/g, '')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_');
+
+            return `${headerEncoded}.${payloadEncoded}.${signature}`;
+        }
 
         // Initialize WebRTC connection and join room
         function initializeRoom(name) {
