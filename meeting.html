@@ -1,427 +1,162 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Chat Room</title>
+    <title>Video Chat Room</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
-
-        body {
-            min-height: 100vh;
-            background-color: #f5f5f5;
-            padding: 1.5rem;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .title {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        .button {
-            background-color: #fff;
-            border: 1px solid #e0e0e0;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .button:hover {
-            background-color: #f5f5f5;
-        }
-
-        .button-primary {
-            background-color: #2563eb;
-            color: white;
-            border: none;
-        }
-
-        .button-primary:hover {
-            background-color: #1d4ed8;
-        }
-
-        .name-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        .input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 0.375rem;
-            margin: 1rem 0;
-        }
-
-        .participants-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .participant-card {
-            background-color: white;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .avatar {
-            width: 48px;
-            height: 48px;
-            background-color: #e0e0e0;
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .participants { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+        .participant {
+            width: 200px;
+            height: 200px;
+            position: relative;
+            background: red;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            opacity: 0.7;
+            transition: opacity 0.3s;
         }
-
-        .name {
-            font-weight: 500;
+        .participant.named { opacity: 1; }
+        .name-tag {
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+            font-family: Arial;
+        }
+        .controls { margin: 20px 0; display: none; }
+        .join-controls {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        #nameInput {
+            padding: 8px;
+            margin: 10px;
+            width: 200px;
+        }
+        #roomLink {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <div id="nameModal" class="name-modal">
-        <div class="modal-content">
-            <h2 class="title">Enter your name</h2>
-            <input type="text" id="nameInput" class="input" placeholder="Your name">
-            <button id="joinButton" class="button button-primary">Join Room</button>
-        </div>
-    </div>
-
     <div class="container">
-        <div class="header">
-            <h1 class="title">Voice Chat Room</h1>
-            <button id="copyLink" class="button">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                Copy Room Link
-            </button>
+        <div id="participants"></div>
+        
+        <div id="joinForm" class="join-controls">
+            <input type="text" id="nameInput" placeholder="Enter your name">
+            <button onclick="joinRoom()">Join Room</button>
         </div>
 
-        <div id="participantsGrid" class="participants-grid">
-            <!-- Participants will be added here dynamically -->
+        <div id="controls" class="controls">
+            <input type="text" id="roomLink" readonly>
+            <button onclick="copyLink()">Copy Room Link</button>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
     <script>
-        let localStream = null;
-        let peerConnections = {};
-        let dataChannels = {};
-        let currentUserName = '';
-        let isMuted = false;
-        let isHost = false;
-        let ws = null;
-
-        // Function to generate JWT
-        function generateJWT(name) {
-            const header = {
-                alg: "HS256",
-                typ: "JWT"
-            };
-            const payload = {
-                name,
-                exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour expiration
-            };
-            const secret = 'your-256-bit-secret'; // Replace with your actual secret key
-
-            const base64UrlEncode = (obj) => {
-                return btoa(JSON.stringify(obj))
-                    .replace(/=/g, '')
-                    .replace(/\+/g, '-')
-                    .replace(/\//g, '_');
-            };
-
-            const headerEncoded = base64UrlEncode(header);
-            const payloadEncoded = base64UrlEncode(payload);
-            const signature = CryptoJS.HmacSHA256(headerEncoded + "." + payloadEncoded, secret).toString(CryptoJS.enc.Base64)
-                .replace(/=/g, '')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_');
-
-            return `${headerEncoded}.${payloadEncoded}.${signature}`;
+        let ws;
+        let currentRoom;
+        
+        function initializeRoom() {
+            currentRoom = getRoomId();
+            addParticipant();
+            
+            ws = new WebSocket('wss://signal-server-30rd6mlr5-cullen-harrisons-projects.vercel.app');
+            
+            ws.onmessage = handleMessage;
         }
-
-        // Initialize WebRTC connection and join room
-        function initializeRoom(name) {
-            currentUserName = name;
-            document.getElementById('nameModal').style.display = 'none';
-
-            // Add local participant
-            addParticipant('me', name + ' (You)');
-
-            // Check if the user is the host
-            isHost = !new URLSearchParams(window.location.search).get('room');
-
-            if (isHost) {
-                const newUrl = new URL(window.location.href);
-                newUrl.searchParams.set('room', crypto.randomUUID());
-                window.history.replaceState({}, '', newUrl);
-            }
-
-            // Get user's audio stream
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    localStream = stream;
-                    if (isHost) {
-                        setupHost();
-                    } else {
-                        joinRoom();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error accessing microphone:', error);
-                    alert('Unable to access microphone. Please ensure you have granted permission.');
-                });
-
-            // Generate JWT
-            const token = generateJWT(name);
-
-            // Connect to signaling server with JWT
-            ws = new WebSocket(`wss://signal-server-30rd6mlr5-cullen-harrisons-projects.vercel.app?token=${token}`);
-
-            ws.onopen = () => {
-                console.log('Connected to signaling server');
-                // Join room
-                ws.send(JSON.stringify({
-                    type: 'join-room',
-                    name: currentUserName,
-                    roomId: new URLSearchParams(window.location.search).get('room')
-                }));
-            };
-
-            ws.onmessage = async (event) => {
-                const message = JSON.parse(event.data);
-                
-                switch(message.type) {
-                    case 'user-joined':
-                        handleUserJoined(message.userId, message.name);
-                        break;
-                    case 'user-left':
-                        handleUserLeft(message.userId);
-                        break;
-                    case 'offer':
-                        handleOffer(message.userId, message.offer);
-                        break;
-                    case 'answer':
-                        handleAnswer(message.userId, message.answer);
-                        break;
-                    case 'ice-candidate':
-                        handleIceCandidate(message.userId, message.candidate);
-                        break;
-                }
-            };
-        }
-
-        // Setup host
-        function setupHost() {
-            const roomId = new URLSearchParams(window.location.search).get('room');
-            console.log(`Hosting room: ${roomId}`);
-        }
-
-        // Join room
+        
         function joinRoom() {
-            const roomId = new URLSearchParams(window.location.search).get('room');
-            console.log(`Joining room: ${roomId}`);
-            // Implement signaling logic to connect to the host
-        }
-
-        // Handle new user joining
-        async function handleUserJoined(userId, name) {
-            addParticipant(userId, name);
-
-            const pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            });
-
-            peerConnections[userId] = pc;
-
-            // Add local stream
-            if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    pc.addTrack(track, localStream);
-                });
-            }
-
-            // Handle ICE candidates
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    ws.send(JSON.stringify({
-                        type: 'ice-candidate',
-                        userId,
-                        candidate: event.candidate
-                    }));
-                }
-            };
-
-            // Handle remote stream
-            pc.ontrack = (event) => {
-                const audioEl = document.createElement('audio');
-                audioEl.srcObject = event.streams[0];
-                audioEl.autoplay = true;
-                document.getElementById(`participant-${userId}`).appendChild(audioEl);
-            };
-
-            // Create and send offer
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
+            const name = document.getElementById('nameInput').value;
+            if (!name) return;
+            
             ws.send(JSON.stringify({
-                type: 'offer',
-                userId,
-                offer
+                type: 'join',
+                name: name,
+                room: currentRoom
             }));
+            
+            document.getElementById('joinForm').style.display = 'none';
+            document.getElementById('controls').style.display = 'block';
+            updateParticipantName(name, true);
+            
+            const roomUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
+            document.getElementById('roomLink').value = roomUrl;
         }
-
-        // Handle user leaving
-        function handleUserLeft(userId) {
-            if (peerConnections[userId]) {
-                peerConnections[userId].close();
-                delete peerConnections[userId];
-            }
-            const participantEl = document.getElementById(`participant-${userId}`);
-            if (participantEl) {
-                participantEl.remove();
-            }
-        }
-
-        // Handle received offer
-        async function handleOffer(userId, offer) {
-            const pc = peerConnections[userId];
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            ws.send(JSON.stringify({
-                type: 'answer',
-                userId,
-                answer
-            }));
-        }
-
-        // Handle received answer
-        async function handleAnswer(userId, answer) {
-            const pc = peerConnections[userId];
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        }
-
-        // Handle ICE candidate
-        async function handleIceCandidate(userId, candidate) {
-            const pc = peerConnections[userId];
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-
-        // Add participant to the grid
-        function addParticipant(id, name) {
-            const participantEl = document.createElement('div');
-            participantEl.id = `participant-${id}`;
-            participantEl.className = 'participant-card';
-            participantEl.innerHTML = `
-                <div class="avatar">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                </div>
-                <div class="name">${name}</div>
-                ${id === 'me' ? `
-                    <button class="button" onclick="toggleMute()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                        </svg>
-                    </button>
-                ` : ''}
-            `;
-            document.getElementById('participantsGrid').appendChild(participantEl);
-        }
-
-        // Toggle mute/unmute
-        function toggleMute() {
-            if (localStream) {
-                localStream.getAudioTracks().forEach(track => {
-                    track.enabled = !track.enabled;
-                });
-                isMuted = !isMuted;
+        
+        function handleMessage(event) {
+            const message = JSON.parse(event.data);
+            
+            switch(message.type) {
+                case 'userJoined':
+                    if (document.getElementsByClassName('participant').length < 12) {
+                        addParticipant(message.name);
+                    }
+                    break;
+                case 'userLeft':
+                    removeParticipant(message.name);
+                    break;
             }
         }
-
-        // Copy room link
-        document.getElementById('copyLink').addEventListener('click', () => {
-            const link = window.location.href;
-            navigator.clipboard.writeText(link);
-            alert('Room link copied to clipboard!');
-        });
-
-        // Handle join button click
-        document.getElementById('joinButton').addEventListener('click', () => {
-            const name = document.getElementById('nameInput').value.trim();
+        
+        function addParticipant(name = '') {
+            const participantsDiv = document.getElementById('participants');
+            const participant = document.createElement('div');
+            participant.className = `participant ${name ? 'named' : ''}`;
+            participant.id = name ? `participant-${name}` : 'unnamed-participant';
+            
             if (name) {
-                initializeRoom(name);
+                const nameTag = document.createElement('div');
+                nameTag.className = 'name-tag';
+                nameTag.textContent = name;
+                participant.appendChild(nameTag);
             }
-        });
-
-        // Handle enter key in name input
-        document.getElementById('nameInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const name = e.target.value.trim();
-                if (name) {
-                    initializeRoom(name);
-                }
-            }
-        });
-
-        // Generate room ID if not present in URL
-        if (!new URLSearchParams(window.location.search).get('room')) {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.set('room', crypto.randomUUID());
-            window.history.replaceState({}, '', newUrl);
+            
+            participantsDiv.appendChild(participant);
         }
+        
+        function updateParticipantName(name, isSelf = false) {
+            const participant = document.getElementById('unnamed-participant');
+            if (participant) {
+                participant.id = `participant-${name}`;
+                participant.classList.add('named');
+                
+                const nameTag = document.createElement('div');
+                nameTag.className = 'name-tag';
+                nameTag.textContent = name;
+                participant.appendChild(nameTag);
+            }
+        }
+        
+        function removeParticipant(name) {
+            const participant = document.getElementById(`participant-${name}`);
+            if (participant) participant.remove();
+        }
+        
+        function getRoomId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('room') || generateRoomId();
+        }
+        
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 15);
+        }
+
+        function copyLink() {
+            const link = document.getElementById('roomLink');
+            link.select();
+            document.execCommand('copy');
+        }
+        
+        window.onload = initializeRoom;
     </script>
 </body>
 </html>
