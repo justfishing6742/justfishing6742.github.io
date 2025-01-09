@@ -151,40 +151,12 @@
     <script>
         let localStream = null;
         let peerConnections = {};
-        let ws = null;
+        let dataChannels = {};
         let currentUserName = '';
         let isMuted = false;
+        let isHost = false;
 
-        // Function to generate JWT
-        function generateJWT(name) {
-            const header = {
-                alg: "HS256",
-                typ: "JWT"
-            };
-            const payload = {
-                name,
-                exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hour expiration
-            };
-            const secret = 'your-256-bit-secret'; // Replace with your actual secret key
-
-            const base64UrlEncode = (obj) => {
-                return btoa(JSON.stringify(obj))
-                    .replace(/=/g, '')
-                    .replace(/\+/g, '-')
-                    .replace(/\//g, '_');
-            };
-
-            const headerEncoded = base64UrlEncode(header);
-            const payloadEncoded = base64UrlEncode(payload);
-            const signature = CryptoJS.HmacSHA256(headerEncoded + "." + payloadEncoded, secret).toString(CryptoJS.enc.Base64)
-                .replace(/=/g, '')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_');
-
-            return `${headerEncoded}.${payloadEncoded}.${signature}`;
-        }
-
-        // Initialize WebSocket connection and join room
+        // Initialize WebRTC connection and join room
         function initializeRoom(name) {
             currentUserName = name;
             document.getElementById('nameModal').style.display = 'none';
@@ -192,53 +164,42 @@
             // Add local participant
             addParticipant('me', name + ' (You)');
 
-            // Generate JWT
-            const token = generateJWT(name);
+            // Check if the user is the host
+            isHost = !new URLSearchParams(window.location.search).get('room');
 
-            // Connect to signaling server with JWT
-            ws = new WebSocket(`wss://vercel-server-l3b8yoyhv-cullen-harrisons-projects.vercel.app?token=${token}`);
-
-            ws.onopen = () => {
-                console.log('Connected to signaling server');
-                // Join room
-                ws.send(JSON.stringify({
-                    type: 'join-room',
-                    name: currentUserName,
-                    roomId: new URLSearchParams(window.location.search).get('room') || crypto.randomUUID()
-                }));
-            };
-
-            ws.onmessage = async (event) => {
-                const message = JSON.parse(event.data);
-                
-                switch(message.type) {
-                    case 'user-joined':
-                        handleUserJoined(message.userId, message.name);
-                        break;
-                    case 'user-left':
-                        handleUserLeft(message.userId);
-                        break;
-                    case 'offer':
-                        handleOffer(message.userId, message.offer);
-                        break;
-                    case 'answer':
-                        handleAnswer(message.userId, message.answer);
-                        break;
-                    case 'ice-candidate':
-                        handleIceCandidate(message.userId, message.candidate);
-                        break;
-                }
-            };
+            if (isHost) {
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.set('room', crypto.randomUUID());
+                window.history.replaceState({}, '', newUrl);
+            }
 
             // Get user's audio stream
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
                     localStream = stream;
+                    if (isHost) {
+                        setupHost();
+                    } else {
+                        joinRoom();
+                    }
                 })
                 .catch(error => {
                     console.error('Error accessing microphone:', error);
                     alert('Unable to access microphone. Please ensure you have granted permission.');
                 });
+        }
+
+        // Setup host
+        function setupHost() {
+            const roomId = new URLSearchParams(window.location.search).get('room');
+            console.log(`Hosting room: ${roomId}`);
+        }
+
+        // Join room
+        function joinRoom() {
+            const roomId = new URLSearchParams(window.location.search).get('room');
+            console.log(`Joining room: ${roomId}`);
+            // Implement signaling logic to connect to the host
         }
 
         // Handle new user joining
@@ -248,7 +209,7 @@
             const pc = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             });
-            
+
             peerConnections[userId] = pc;
 
             // Add local stream
@@ -261,11 +222,7 @@
             // Handle ICE candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    ws.send(JSON.stringify({
-                        type: 'ice-candidate',
-                        userId,
-                        candidate: event.candidate
-                    }));
+                    // Send ICE candidate to the peer
                 }
             };
 
@@ -280,11 +237,7 @@
             // Create and send offer
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            ws.send(JSON.stringify({
-                type: 'offer',
-                userId,
-                offer
-            }));
+            // Send offer to the peer
         }
 
         // Handle user leaving
@@ -305,11 +258,7 @@
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            ws.send(JSON.stringify({
-                type: 'answer',
-                userId,
-                answer
-            }));
+            // Send answer to the peer
         }
 
         // Handle received answer
