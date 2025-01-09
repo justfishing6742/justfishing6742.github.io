@@ -217,6 +217,44 @@
                     console.error('Error accessing microphone:', error);
                     alert('Unable to access microphone. Please ensure you have granted permission.');
                 });
+
+            // Generate JWT
+            const token = generateJWT(name);
+
+            // Connect to signaling server with JWT
+            const ws = new WebSocket(`wss://signal-server-30rd6mlr5-cullen-harrisons-projects.vercel.app?token=${token}`);
+
+            ws.onopen = () => {
+                console.log('Connected to signaling server');
+                // Join room
+                ws.send(JSON.stringify({
+                    type: 'join-room',
+                    name: currentUserName,
+                    roomId: new URLSearchParams(window.location.search).get('room')
+                }));
+            };
+
+            ws.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                
+                switch(message.type) {
+                    case 'user-joined':
+                        handleUserJoined(message.userId, message.name);
+                        break;
+                    case 'user-left':
+                        handleUserLeft(message.userId);
+                        break;
+                    case 'offer':
+                        handleOffer(message.userId, message.offer);
+                        break;
+                    case 'answer':
+                        handleAnswer(message.userId, message.answer);
+                        break;
+                    case 'ice-candidate':
+                        handleIceCandidate(message.userId, message.candidate);
+                        break;
+                }
+            };
         }
 
         // Setup host
@@ -252,7 +290,11 @@
             // Handle ICE candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    // Send ICE candidate to the peer
+                    ws.send(JSON.stringify({
+                        type: 'ice-candidate',
+                        userId,
+                        candidate: event.candidate
+                    }));
                 }
             };
 
@@ -267,7 +309,11 @@
             // Create and send offer
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            // Send offer to the peer
+            ws.send(JSON.stringify({
+                type: 'offer',
+                userId,
+                offer
+            }));
         }
 
         // Handle user leaving
@@ -288,7 +334,11 @@
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            // Send answer to the peer
+            ws.send(JSON.stringify({
+                type: 'answer',
+                userId,
+                answer
+            }));
         }
 
         // Handle received answer
