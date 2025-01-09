@@ -156,6 +156,7 @@
         let currentUserName = '';
         let isMuted = false;
         let isHost = false;
+        let ws = null;
 
         // Function to generate JWT
         function generateJWT(name) {
@@ -222,7 +223,7 @@
             const token = generateJWT(name);
 
             // Connect to signaling server with JWT
-            const ws = new WebSocket(`wss://signal-server-30rd6mlr5-cullen-harrisons-projects.vercel.app?token=${token}`);
+            ws = new WebSocket(`wss://signal-server-30rd6mlr5-cullen-harrisons-projects.vercel.app?token=${token}`);
 
             ws.onopen = () => {
                 console.log('Connected to signaling server');
