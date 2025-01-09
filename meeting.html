@@ -70,12 +70,23 @@
             currentRoom = getRoomId();
             addParticipant();
             
-            ws = new WebSocket('wss://signal-server-hfo1e3cab-cullen-harrisons-projects.vercel.app');
-            
-            ws.onmessage = handleMessage;
+            try {
+                ws = new WebSocket('wss://signal-server-hfo1e3cab-cullen-harrisons-projects.vercel.app');
+                ws.onopen = () => console.log('WebSocket connection established');
+                ws.onmessage = handleMessage;
+                ws.onerror = (error) => console.error('WebSocket error:', error);
+                ws.onclose = () => console.log('WebSocket connection closed');
+            } catch (error) {
+                console.error('Failed to establish WebSocket connection:', error);
+            }
         }
         
         function joinRoom() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('WebSocket connection is not ready. Please try again.');
+                return;
+            }
+
             const name = document.getElementById('nameInput').value;
             if (!name) return;
             
