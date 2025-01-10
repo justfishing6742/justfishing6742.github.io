@@ -80,6 +80,8 @@
             margin-left: 0.5rem;
         }
     </style>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
 </head>
 <body>
     <header>
@@ -114,7 +116,71 @@
         <div id="confirmedMeeting"></div>
     </main>
 
+    <div id="auth">
+        <h2>Login</h2>
+        <input type="text" id="loginUsername" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="login()">Login</button>
+        
+        <h2>Register</h2>
+        <input type="text" id="registerUsername" placeholder="Email">
+        <input type="password" id="registerPassword" placeholder="Password">
+        <button onclick="register()">Register</button>
+    </div>
+
     <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        const auth = firebase.auth();
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // User is signed in
+                document.getElementById('loginButton').textContent = user.email;
+                document.getElementById('manageAccount').style.display = 'block';
+                isLoggedIn = true;
+            } else {
+                // User is signed out
+                document.getElementById('loginButton').textContent = 'Login';
+                document.getElementById('manageAccount').style.display = 'none';
+                isLoggedIn = false;
+            }
+        });
+
+        async function login() {
+            const email = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                alert('Login successful');
+                // Save the token or user info as needed
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                alert('Registration successful');
+            } catch (error) {
+                alert('Registration failed: ' + error.message);
+            }
+        }
+
         let isLoggedIn = false;
 
         function checkLogin() {

@@ -46,6 +46,8 @@
             margin: 10px 0;
         }
     </style>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
 </head>
 <body>
     <div class="container">
@@ -63,6 +65,33 @@
     </div>
 
     <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        const auth = firebase.auth();
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // User is signed in
+                console.log('User is signed in:', user.email);
+                // Update UI or perform actions based on the authenticated user
+            } else {
+                // User is signed out
+                console.log('User is signed out');
+                // Redirect to login page or show login form
+            }
+        });
+
         let ws;
         let currentRoom;
         
@@ -71,7 +100,7 @@
             addParticipant();
             
             try {
-                ws = new WebSocket('//signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app/');
+                ws = new WebSocket('wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app');
                 ws.onopen = () => console.log('WebSocket connection established');
                 ws.onmessage = handleMessage;
                 ws.onerror = (error) => {
