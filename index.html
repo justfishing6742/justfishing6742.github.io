@@ -83,19 +83,22 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
             authDomain: "oaauth-e0c4d.firebaseapp.com",
             projectId: "oaauth-e0c4d",
-            storageBucket: "oaauth-e0c4d.appspot.com",
+            storageBucket: "oaauth-e0c4d.firebasestorage.app",
             messagingSenderId: "76089646716",
-            appId: "1:76089646716:web:abcd1234efgh5678"
+            appId: "1:76089646716:web:7563461b855ce67e56b3f9",
+            measurementId: "G-KJZ6DQD73B"
         };
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
