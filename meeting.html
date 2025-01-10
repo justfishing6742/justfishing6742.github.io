@@ -46,25 +46,10 @@
             margin: 10px 0;
         }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
-</head>
-<body>
-    <div class="container">
-        <div id="participants"></div>
-        
-        <div id="joinForm" class="join-controls">
-            <input type="text" id="nameInput" placeholder="Enter your name">
-            <button onclick="joinRoom()">Join Room</button>
-        </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
-        <div id="controls" class="controls">
-            <input type="text" id="roomLink" readonly>
-            <button onclick="copyLink()">Copy Room Link</button>
-        </div>
-    </div>
-
-    <script>
         // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
@@ -77,29 +62,24 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-        const auth = firebase.auth();
-
-        auth.onAuthStateChanged(user => {
+        onAuthStateChanged(auth, user => {
             if (user) {
-                // User is signed in
                 console.log('User is signed in:', user.email);
-                // Update UI or perform actions based on the authenticated user
             } else {
-                // User is signed out
                 console.log('User is signed out');
-                // Redirect to login page or show login form
             }
         });
 
         let ws;
         let currentRoom;
-        
+
         function initializeRoom() {
             currentRoom = getRoomId();
             addParticipant();
-            
+
             try {
                 ws = new WebSocket('wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app');
                 ws.onopen = () => console.log('WebSocket connection established');
@@ -119,7 +99,7 @@
                 alert('Failed to establish WebSocket connection. Please try again later.');
             }
         }
-        
+
         function joinRoom() {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 alert('WebSocket connection is not ready. Please try again.');
@@ -128,25 +108,25 @@
 
             const name = document.getElementById('nameInput').value;
             if (!name) return;
-            
+
             ws.send(JSON.stringify({
                 type: 'join',
                 name: name,
                 room: currentRoom
             }));
-            
+
             document.getElementById('joinForm').style.display = 'none';
             document.getElementById('controls').style.display = 'block';
             updateParticipantName(name, true);
-            
+
             const roomUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
             document.getElementById('roomLink').value = roomUrl;
         }
-        
+
         function handleMessage(event) {
             const message = JSON.parse(event.data);
-            
-            switch(message.type) {
+
+            switch (message.type) {
                 case 'userJoined':
                     if (document.getElementsByClassName('participant').length < 12) {
                         addParticipant(message.name);
@@ -157,46 +137,46 @@
                     break;
             }
         }
-        
+
         function addParticipant(name = '') {
             const participantsDiv = document.getElementById('participants');
             const participant = document.createElement('div');
             participant.className = `participant ${name ? 'named' : ''}`;
             participant.id = name ? `participant-${name}` : 'unnamed-participant';
-            
+
             if (name) {
                 const nameTag = document.createElement('div');
                 nameTag.className = 'name-tag';
                 nameTag.textContent = name;
                 participant.appendChild(nameTag);
             }
-            
+
             participantsDiv.appendChild(participant);
         }
-        
+
         function updateParticipantName(name, isSelf = false) {
             const participant = document.getElementById('unnamed-participant');
             if (participant) {
                 participant.id = `participant-${name}`;
                 participant.classList.add('named');
-                
+
                 const nameTag = document.createElement('div');
                 nameTag.className = 'name-tag';
                 nameTag.textContent = name;
                 participant.appendChild(nameTag);
             }
         }
-        
+
         function removeParticipant(name) {
             const participant = document.getElementById(`participant-${name}`);
             if (participant) participant.remove();
         }
-        
+
         function getRoomId() {
             const params = new URLSearchParams(window.location.search);
             return params.get('room') || generateRoomId();
         }
-        
+
         function generateRoomId() {
             return Math.random().toString(36).substring(2, 15);
         }
@@ -206,8 +186,23 @@
             link.select();
             document.execCommand('copy');
         }
-        
+
         window.onload = initializeRoom;
     </script>
+</head>
+<body>
+    <div class="container">
+        <div id="participants"></div>
+
+        <div id="joinForm" class="join-controls">
+            <input type="text" id="nameInput" placeholder="Enter your name">
+            <button onclick="joinRoom()">Join Room</button>
+        </div>
+
+        <div id="controls" class="controls">
+            <input type="text" id="roomLink" readonly>
+            <button onclick="copyLink()">Copy Room Link</button>
+        </div>
+    </div>
 </body>
 </html>
