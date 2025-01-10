@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>EasyPeer2Peer - Video Chat Room</title>
+  <title>EasyPeer2Peer - Voice Chat Room</title>
   <link rel="icon" type="image/png" href="favicon-16x16.png">
   <style>
     body {
@@ -124,7 +124,6 @@
 
     let ws;
     let currentRoom;
-    let localStream;
     let peerConnection;
 
     async function initializeRoom() {
@@ -173,7 +172,6 @@
       const roomUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
       document.getElementById('roomLink').value = roomUrl;
 
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setupPeerConnection();
     }
 
@@ -264,21 +262,25 @@
         }
       });
 
-      peerConnection.addEventListener('track', event => {
-        const audioElement = document.createElement('audio');
-        audioElement.srcObject = event.streams[0];
-        audioElement.autoplay = true;
-        document.body.appendChild(audioElement);
+      peerConnection.addEventListener('datachannel', event => {
+        const receiveChannel = event.channel;
+        receiveChannel.onmessage = (event) => {
+          console.log('Received Message:', event.data);
+          alert('Message: ' + event.data);
+        };
       });
 
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
+      const dataChannel = peerConnection.createDataChannel('chat');
+      dataChannel.onopen = () => console.log('Data channel is open');
+      dataChannel.onmessage = (event) => {
+        console.log('Received Message:', event.data);
+        alert('Message: ' + event.data);
+      };
 
-      createOffer();
+      createOffer(dataChannel);
     }
 
-    async function createOffer() {
+    async function createOffer(dataChannel) {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
 
@@ -291,6 +293,4 @@
 
     async function handleOffer(offer) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-
+      const
