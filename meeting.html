@@ -71,7 +71,7 @@
             addParticipant();
             
             try {
-                ws = new WebSocket('wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app');
+                ws = new WebSocket('//signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app/');
                 ws.onopen = () => console.log('WebSocket connection established');
                 ws.onmessage = handleMessage;
                 ws.onerror = (error) => {
