@@ -51,8 +51,13 @@
     </div>
 
     <script>
-        const signalingServer = 'wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app';
+        // Update signaling server URL (using secure WebSocket)
+        const signalingServer = 'wss://signal-v2.vercel.app';
         let socket;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        const reconnectDelay = 2000; // 2 seconds
+
         let localStream;
         let peerConnections = {};
         let localName;
@@ -98,38 +103,61 @@
         }
 
         function connectToSignalingServer() {
-            socket = new WebSocket(signalingServer);
+            try {
+                socket = new WebSocket(signalingServer);
 
-            socket.onopen = () => {
-                console.log('Connected to signaling server');
-                socket.send(JSON.stringify({ type: 'join', room: roomId, name: localName }));
-            };
+                socket.onopen = () => {
+                    console.log('Connected to signaling server');
+                    reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+                    socket.send(JSON.stringify({ type: 'join', room: roomId, name: localName }));
+                };
 
-            socket.onmessage = async (event) => {
-                const message = JSON.parse(event.data);
-                switch (message.type) {
-                    case 'user-joined':
-                        handleUserJoined(message.userId, message.name);
-                        break;
-                    case 'offer':
-                        await handleOffer(message.offer, message.userId);
-                        break;
-                    case 'answer':
-                        await handleAnswer(message.answer, message.userId);
-                        break;
-                    case 'ice-candidate':
-                        handleNewICECandidate(message.candidate, message.userId);
-                        break;
-                }
-            };
+                socket.onmessage = async (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        switch (message.type) {
+                            case 'user-joined':
+                                handleUserJoined(message.userId, message.name);
+                                break;
+                            case 'offer':
+                                await handleOffer(message.offer, message.userId);
+                                break;
+                            case 'answer':
+                                await handleAnswer(message.answer, message.userId);
+                                break;
+                            case 'ice-candidate':
+                                handleNewICECandidate(message.candidate, message.userId);
+                                break;
+                        }
+                    } catch (error) {
+                        console.error('Error handling message:', error);
+                    }
+                };
 
-            socket.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
+                socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    handleReconnection();
+                };
 
-            socket.onclose = () => {
-                console.log('Disconnected from signaling server');
-            };
+                socket.onclose = () => {
+                    console.log('Disconnected from signaling server');
+                    handleReconnection();
+                };
+            } catch (error) {
+                console.error('Error creating WebSocket:', error);
+                handleReconnection();
+            }
+        }
+
+        function handleReconnection() {
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                setTimeout(connectToSignalingServer, reconnectDelay);
+            } else {
+                console.error('Max reconnection attempts reached');
+                alert('Unable to connect to the signaling server. Please refresh the page to try again.');
+            }
         }
 
         async function setupLocalMedia() {
