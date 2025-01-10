@@ -132,7 +132,8 @@
     </div>
 
     <script type="module">
-        import { GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
@@ -145,9 +146,8 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-
-        const auth = firebase.auth();
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
         auth.onAuthStateChanged(user => {
@@ -170,7 +170,7 @@
             const email = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 alert('Login successful');
                 // Save the token or user info as needed
             } catch (error) {
@@ -182,7 +182,7 @@
             const email = document.getElementById('registerUsername').value;
             const password = document.getElementById('registerPassword').value;
             try {
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 alert('Registration successful');
             } catch (error) {
                 alert('Registration failed: ' + error.message);
@@ -262,11 +262,6 @@
         // Event listeners
         document.getElementById('createMeeting').addEventListener('click', showMeetingMenu);
         document.getElementById('confirmMeeting').addEventListener('click', confirmMeeting);
-        document.getElementById('createMeeting').addEventListener('click', checkLogin);
-        document.getElementById('loginButton').addEventListener('click', () => {
-            isLoggedIn = true;
-            updateUIForLoggedInUser();
-        });
     </script>
 </body>
 </html>
