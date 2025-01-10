@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2P Voice Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
     <style>
         body {
             background-color: #1f2937;
@@ -29,6 +32,21 @@
     </div>
 
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
+            authDomain: "oaauth-e0c4d.firebaseapp.com",
+            projectId: "oaauth-e0c4d",
+            storageBucket: "oaauth-e0c4d.firebasestorage.app",
+            messagingSenderId: "76089646716",
+            appId: "1:76089646716:web:7563461b855ce67e56b3f9",
+            measurementId: "G-KJZ6DQD73B"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
         const signalingServer = 'wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app';
         let socket;
         let localStream;
