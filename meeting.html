@@ -1,293 +1,230 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>EasyPeer2Peer - Voice Chat Room</title>
-  <link rel="icon" type="image/png" href="favicon-16x16.png">
-  <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      background-color: #2C2C2C;
-      color: white;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-      text-align: center;
-    }
-    .participants {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 20px 0;
-    }
-    .participant {
-      width: 150px;
-      height: 150px;
-      background: #4F4F4F;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.7;
-      transition: opacity 0.3s;
-      position: relative;
-    }
-    .participant.named {
-      opacity: 1;
-    }
-    .name-tag {
-      position: absolute;
-      bottom: -25px;
-      width: 100%;
-      text-align: center;
-      font-family: Arial;
-    }
-    .controls {
-      margin: 20px 0;
-    }
-    .join-controls {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #3B3B3B;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-      text-align: center;
-    }
-    #nameInput {
-      padding: 8px;
-      margin: 10px;
-      width: 200px;
-      background: #4F4F4F;
-      border: none;
-      border-radius: 5px;
-      color: white;
-    }
-    #roomLink {
-      width: 100%;
-      padding: 8px;
-      margin: 10px 0;
-      background: #4F4F4F;
-      border: none;
-      border-radius: 5px;
-      color: white;
-    }
-    button {
-      padding: 10px 20px;
-      background: #1E88E5;
-      border: none;
-      border-radius: 5px;
-      color: white;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background: #1565C0;
-    }
-    .link-controls {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .link-controls button {
-      padding: 8px 16px;
-    }
-  </style>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Voice Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1f2937;
+            color: white;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div id="joinForm" class="bg-gray-700 p-6 rounded-lg shadow-lg">
+        <input type="text" id="nameInput" placeholder="Enter your name" class="w-full p-2 mb-4 bg-gray-600 rounded text-white">
+        <button id="joinButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Join Room</button>
+    </div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
-      authDomain: "oaauth-e0c4d.firebaseapp.com",
-      projectId: "oaauth-e0c4d",
-      storageBucket: "oaauth-e0c4d.firebasestorage.app",
-      messagingSenderId: "76089646716",
-      appId: "1:76089646716:web:7563461b855ce67e56b3f9",
-      measurementId: "G-KJZ6DQD73B"
-    };
+    <div id="roomView" class="w-full max-w-4xl hidden">
+        <div class="mb-4 flex justify-between items-center">
+            <h2 class="text-2xl font-bold">Voice Chat Room</h2>
+            <button id="copyLinkButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">Copy Room Link</button>
+        </div>
+        <div id="participantsGrid" class="grid grid-cols-3 gap-4">
+            <!-- Participant slots will be dynamically added here -->
+        </div>
+    </div>
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    <script>
+        const signalingServer = 'wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app';
+        let socket;
+        let localStream;
+        let peerConnections = {};
+        let localName;
+        let roomId;
 
-    let ws;
-    let currentRoom;
-    let peerConnection;
+        const joinForm = document.getElementById('joinForm');
+        const roomView = document.getElementById('roomView');
+        const nameInput = document.getElementById('nameInput');
+        const joinButton = document.getElementById('joinButton');
+        const copyLinkButton = document.getElementById('copyLinkButton');
+        const participantsGrid = document.getElementById('participantsGrid');
 
-    async function initializeRoom() {
-      currentRoom = getRoomId();
-      addParticipant();
+        joinButton.addEventListener('click', joinRoom);
+        copyLinkButton.addEventListener('click', copyRoomLink);
 
-      try {
-        ws = new WebSocket('wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app');
-        ws.onopen = () => console.log('WebSocket connection established');
-        ws.onmessage = handleMessage;
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          alert('WebSocket connection error. Please try again later.');
-        };
-        ws.onclose = (event) => {
-          console.log('WebSocket connection closed:', event);
-          if (!event.wasClean) {
-            alert('WebSocket connection closed unexpectedly. Please try again later.');
-          }
-        };
-      } catch (error) {
-        console.error('Failed to establish WebSocket connection:', error);
-        alert('Failed to establish WebSocket connection. Please try again later.');
-      }
-    }
-
-    async function joinRoom() {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        alert('WebSocket connection is not ready. Please try again.');
-        return;
-      }
-
-      const name = document.getElementById('nameInput').value;
-      if (!name) return;
-
-      ws.send(JSON.stringify({
-        type: 'join',
-        name: name,
-                room: currentRoom
-              }));
+        function joinRoom() {
+            localName = nameInput.value.trim();
+            if (!localName) {
+                alert('Please enter your name');
+                return;
             }
-          }
+
+            roomId = generateRoomId();
+            joinForm.classList.add('hidden');
+            roomView.classList.remove('hidden');
+
+            initializeParticipantSlots();
+            connectToSignalingServer();
+            setupLocalMedia();
         }
-      }));
 
-      document.getElementById('joinForm').style.display = 'none';
-      document.getElementById('controls').style.display = 'block';
-      updateParticipantName(name, true);
-
-      const roomUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
-      document.getElementById('roomLink').value = roomUrl;
-
-      setupPeerConnection();
-    }
-
-    function handleMessage(event) {
-      const message = JSON.parse(event.data);
-
-      switch (message.type) {
-        case 'userJoined':
-          if (document.getElementsByClassName('participant').length < 12) {
-            addParticipant(message.name);
-          }
-          break;
-        case 'userLeft':
-          removeParticipant(message.name);
-          break;
-        case 'offer':
-          handleOffer(message.offer);
-          break;
-        case 'answer':
-          handleAnswer(message.answer);
-          break;
-        case 'candidate':
-          handleCandidate(message.candidate);
-          break;
-      }
-    }
-
-    function addParticipant(name = '') {
-      const participantsDiv = document.getElementById('participants');
-      const participant = document.createElement('div');
-      participant.className = `participant ${name ? 'named' : ''}`;
-      participant.id = name ? `participant-${name}` : 'unnamed-participant';
-
-      if (name) {
-        const nameTag = document.createElement('div');
-        nameTag.className = 'name-tag';
-        nameTag.textContent = name;
-        participant.appendChild(nameTag);
-      }
-
-      participantsDiv.appendChild(participant);
-    }
-
-    function updateParticipantName(name, isSelf = false) {
-      const participant = document.getElementById('unnamed-participant');
-      if (participant) {
-        participant.id = `participant-${name}`;
-        participant.classList.add('named');
-
-        const nameTag = document.createElement('div');
-        nameTag.className = 'name-tag';
-        nameTag.textContent = name;
-        participant.appendChild(nameTag);
-      }
-    }
-
-    function removeParticipant(name) {
-      const participant = document.getElementById(`participant-${name}`);
-      if (participant) participant.remove();
-    }
-
-    function getRoomId() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('room') || generateRoomId();
-    }
-
-    function generateRoomId() {
-      return Math.random().toString(36).substring(2, 15);
-    }
-
-    function copyLink() {
-      const link = document.getElementById('roomLink');
-      link.select();
-      document.execCommand('copy');
-    }
-
-    function setupPeerConnection() {
-      const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-      peerConnection = new RTCPeerConnection(configuration);
-
-      peerConnection.addEventListener('icecandidate', event => {
-        if (event.candidate) {
-          ws.send(JSON.stringify({
-            type: 'candidate',
-            candidate: event.candidate,
-            room: currentRoom
-          }));
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         }
-      });
 
-      peerConnection.addEventListener('datachannel', event => {
-        const receiveChannel = event.channel;
-        receiveChannel.onmessage = (event) => {
-          console.log('Received Message:', event.data);
-          alert('Message: ' + event.data);
+        function initializeParticipantSlots() {
+            for (let i = 0; i < 12; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'bg-gray-700 p-4 rounded-lg flex items-center justify-center opacity-50';
+                slot.innerHTML = '<span class="text-gray-400">Empty Slot</span>';
+                participantsGrid.appendChild(slot);
+            }
+        }
+
+        function connectToSignalingServer() {
+            socket = new WebSocket(signalingServer);
+
+            socket.onopen = () => {
+                console.log('Connected to signaling server');
+                socket.send(JSON.stringify({ type: 'join', room: roomId, name: localName }));
+            };
+
+            socket.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                switch (message.type) {
+                    case 'user-joined':
+                        handleUserJoined(message.userId, message.name);
+                        break;
+                    case 'offer':
+                        await handleOffer(message.offer, message.userId);
+                        break;
+                    case 'answer':
+                        await handleAnswer(message.answer, message.userId);
+                        break;
+                    case 'ice-candidate':
+                        handleNewICECandidate(message.candidate, message.userId);
+                        break;
+                }
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            socket.onclose = () => {
+                console.log('Disconnected from signaling server');
+            };
+        }
+
+        async function setupLocalMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                updateParticipantSlot(0, localName);
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
+            }
+        }
+
+        function handleUserJoined(userId, name) {
+            console.log(`${name} joined the room`);
+            updateParticipantSlot(getEmptySlotIndex(), name);
+            createPeerConnection(userId, name);
+        }
+
+        function createPeerConnection(userId, name) {
+            const peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.send(JSON.stringify({
+                        type: 'ice-candidate',
+                        candidate: event.candidate,
+                        userId: userId
+                    }));
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                // Handle remote audio stream
+                const audioElement = new Audio();
+                audioElement.srcObject = event.streams[0];
+                audioElement.play();
+            };
+
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            peerConnections[userId] = peerConnection;
+
+            return peerConnection;
+        }
+
+        async function handleOffer(offer, userId) {
+            const peerConnection = peerConnections[userId] || createPeerConnection(userId);
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.send(JSON.stringify({
+                type: 'answer',
+                answer: answer,
+                userId: userId
+            }));
+        }
+
+        async function handleAnswer(answer, userId) {
+            const peerConnection = peerConnections[userId];
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            }
+        }
+
+        function handleNewICECandidate(candidate, userId) {
+            const peerConnection = peerConnections[userId];
+            if (peerConnection) {
+                peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        }
+
+        function updateParticipantSlot(index, name) {
+            const slots = participantsGrid.children;
+            if (index >= 0 && index < slots.length) {
+                const slot = slots[index];
+                slot.className = 'bg-gray-700 p-4 rounded-lg flex items-center justify-center opacity-100';
+                slot.innerHTML = `
+                    <svg class="w-8 h-8 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                    <span>${name}</span>
+                `;
+            }
+        }
+
+        function getEmptySlotIndex() {
+            const slots = participantsGrid.children;
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].classList.contains('opacity-50')) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function copyRoomLink() {
+            const roomLink = `${window.location.href}?room=${roomId}`;
+            navigator.clipboard.writeText(roomLink).then(() => {
+                alert('Room link copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy room link:', err);
+            });
+        }
+
+        // Check if user is joining an existing room
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinRoomId = urlParams.get('room');
+            if (joinRoomId) {
+                roomId = joinRoomId;
+                joinForm.classList.remove('hidden');
+                roomView.classList.add('hidden');
+            }
         };
-      });
-
-      const dataChannel = peerConnection.createDataChannel('chat');
-      dataChannel.onopen = () => console.log('Data channel is open');
-      dataChannel.onmessage = (event) => {
-        console.log('Received Message:', event.data);
-        alert('Message: ' + event.data);
-      };
-
-      createOffer(dataChannel);
-    }
-
-    async function createOffer(dataChannel) {
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-
-      ws.send(JSON.stringify({
-        type: 'offer',
-        offer: offer,
-        room: currentRoom
+    </script>
+</body>
+</html>
