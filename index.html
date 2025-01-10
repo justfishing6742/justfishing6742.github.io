@@ -80,57 +80,6 @@
             margin-left: 0.5rem;
         }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
-</head>
-<body>
-    <header>
-        <div id="accountInfo">
-            <button id="loginButton">Login</button>
-            <button id="signOut" style="display: none;">Sign Out</button>
-        </div>
-        <button id="manageAccount" style="display: none;">Manage Account</button>
-    </header>
-
-    <main>
-        <h1>EasyPeerToPeer</h1>
-        <button id="createMeeting">Create Meeting</button>
-
-        <div id="meetingArea">
-            <!-- Placeholder for the next page content -->
-        </div>
-
-        <div id="previousMeetings"></div>
-
-        <div id="aboutSection">
-            <h2>About EasyPeerToPeer</h2>
-            <p id="aboutContent" contenteditable="true">
-                Click here to edit the about section. Describe your EasyPeerToPeer service and its benefits.
-            </p>
-        </div>
-
-        <div id="meetingMenu">
-            <h2>Create Meeting</h2>
-            <input type="text" id="meetingName" placeholder="Meeting Name">
-            <button id="confirmMeeting">Okay</button>
-        </div>
-        <div id="confirmedMeeting"></div>
-    </main>
-
-    <div id="auth">
-        <h2>Login</h2>
-        <input type="text" id="loginUsername" placeholder="Email">
-        <input type="password" id="loginPassword" placeholder="Password">
-        <button onclick="login()">Login</button>
-        
-        <h2>Register</h2>
-        <input type="text" id="registerUsername" placeholder="Email">
-        <input type="password" id="registerPassword" placeholder="Password">
-        <button onclick="register()">Register</button>
-        
-        <button id="googleSignIn">Sign in with Google</button>
-    </div>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
@@ -166,7 +115,7 @@
             }
         });
 
-        async function login() {
+        window.login = async function() {
             const email = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             try {
@@ -178,7 +127,7 @@
             }
         }
 
-        async function register() {
+        window.register = async function() {
             const email = document.getElementById('registerUsername').value;
             const password = document.getElementById('registerPassword').value;
             try {
@@ -263,6 +212,54 @@
         document.getElementById('createMeeting').addEventListener('click', showMeetingMenu);
         document.getElementById('confirmMeeting').addEventListener('click', confirmMeeting);
     </script>
+</head>
+<body>
+    <header>
+        <div id="accountInfo">
+            <button id="loginButton">Login</button>
+            <button id="signOut" style="display: none;">Sign Out</button>
+        </div>
+        <button id="manageAccount" style="display: none;">Manage Account</button>
+    </header>
+
+    <main>
+        <h1>EasyPeerToPeer</h1>
+        <button id="createMeeting">Create Meeting</button>
+
+        <div id="meetingArea">
+            <!-- Placeholder for the next page content -->
+        </div>
+
+        <div id="previousMeetings"></div>
+
+        <div id="aboutSection">
+            <h2>About EasyPeerToPeer</h2>
+            <p id="aboutContent" contenteditable="true">
+                Click here to edit the about section. Describe your EasyPeerToPeer service and its benefits.
+            </p>
+        </div>
+
+        <div id="meetingMenu">
+            <h2>Create Meeting</h2>
+            <input type="text" id="meetingName" placeholder="Meeting Name">
+            <button id="confirmMeeting">Okay</button>
+        </div>
+        <div id="confirmedMeeting"></div>
+    </main>
+
+    <div id="auth">
+        <h2>Login</h2>
+        <input type="text" id="loginUsername" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="login()">Login</button>
+        
+        <h2>Register</h2>
+        <input type="text" id="registerUsername" placeholder="Email">
+        <input type="password" id="registerPassword" placeholder="Password">
+        <button onclick="register()">Register</button>
+        
+        <button id="googleSignIn">Sign in with Google</button>
+    </div>
 </body>
 </html>
 
