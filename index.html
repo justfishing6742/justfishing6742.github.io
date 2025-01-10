@@ -1,268 +1,246 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EasyPeerToPeer</title>
-    <link rel="icon" type="image/png" href="favicon-16x16.png">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            background-color: #f4f4f4;
-            padding: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        main {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        #previousMeetings {
-            margin-top: 2rem;
-        }
-        #aboutSection {
-            margin-top: 3rem;
-            background-color: #f9f9f9;
-            padding: 1rem;
-            border-radius: 5px;
-        }
-        #meetingMenu {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            padding: 1rem;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            z-index: 1000;
-        }
-        #meetingMenu input {
-            margin-bottom: 1rem;
-            padding: 0.5rem;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .meetingButton {
-            display: flex;
-            align-items: center;
-            margin-top: 1rem;
-        }
-        .meetingButton span {
-            margin-right: 1rem;
-        }
-        .meetingButton button {
-            margin-left: 0.5rem;
-        }
-    </style>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
+  <title>EasyPeer2Peer</title>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #121212;
+      color: #ffffff;
+    }
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      background-color: #1e1e1e;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+      text-align: center;
+      flex-grow: 1;
+    }
+    header .user-info {
+      cursor: pointer;
+      font-size: 16px;
+      position: absolute;
+      right: 20px;
+    }
+    .logo {
+      font-size: 32px;
+      font-weight: bold;
+      color: #1e88e5;
+    }
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-top: 100px;
+    }
+    .about-us {
+      margin-top: auto;
+      padding: 20px;
+      text-align: center;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      margin-top: 30px;
+      cursor: pointer;
+      border: none;
+      background-color: #1e88e5;
+      color: white;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #1565c0;
+    }
+    .popup, .room-popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #1e1e1e;
+      padding: 40px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      border-radius: 10px;
+      color: #ffffff;
+      width: 80%;
+      max-width: 500px;
+    }
+    .popup input, .room-popup input {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin-bottom: 15px;
+      background-color: #333;
+      border: none;
+      border-radius: 5px;
+      color: white;
+    }
+    .popup form, .room-popup form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 20px;
+    }
+    .green-button {
+      background-color: #43a047;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      font-size: 24px;
+      transition: background-color 0.3s;
+    }
+    .green-button:hover {
+      background-color: #2e7d32;
+    }
+  </style>
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-auth.js";
 
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
-            authDomain: "oaauth-e0c4d.firebaseapp.com",
-            projectId: "oaauth-e0c4d",
-            storageBucket: "oaauth-e0c4d.firebasestorage.app",
-            messagingSenderId: "76089646716",
-            appId: "1:76089646716:web:7563461b855ce67e56b3f9",
-            measurementId: "G-KJZ6DQD73B"
-        };
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
+      authDomain: "oaauth-e0c4d.firebaseapp.com",
+      projectId: "oaauth-e0c4d",
+      storageBucket: "oaauth-e0c4d.firebasestorage.app",
+      messagingSenderId: "76089646716",
+      appId: "1:76089646716:web:7563461b855ce67e56b3f9",
+      measurementId: "G-KJZ6DQD73B"
+    };
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    
+    document.addEventListener("DOMContentLoaded", () => {
+      const createRoomButton = document.getElementById('create-room-button');
+      const authPopup = document.getElementById('auth-popup');
+      const roomPopup = document.getElementById('room-popup');
+      const userInfo = document.getElementById('user-info');
+      const closeAuthPopup = document.getElementById('close-auth-popup');
+      const confirmRoom = document.getElementById('confirm-room');
 
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                // User is signed in
-                document.getElementById('loginButton').textContent = user.email;
-                document.getElementById('manageAccount').style.display = 'block';
-                document.getElementById('signOut').style.display = 'block';
-                isLoggedIn = true;
-            } else {
-                // User is signed out
-                document.getElementById('loginButton').textContent = 'Login';
-                document.getElementById('manageAccount').style.display = 'none';
-                document.getElementById('signOut').style.display = 'none';
-                isLoggedIn = false;
-            }
-        });
-
-        window.login = async function() {
-            const email = document.getElementById('loginUsername').value;
-            const password = document.getElementById('loginPassword').value;
-            try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                alert('Login successful');
-                // Save the token or user info as needed
-            } catch (error) {
-                alert('Login failed: ' + error.message);
-            }
+      onAuthStateChanged(auth, user => {
+        if (user) {
+          userInfo.textContent = user.email;
+          userInfo.addEventListener('click', () => {
+            window.location.href = 'user.html'; // Change to the path of your user page
+          });
+        } else {
+          userInfo.textContent = '';
         }
+      });
 
-        window.register = async function() {
-            const email = document.getElementById('registerUsername').value;
-            const password = document.getElementById('registerPassword').value;
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                alert('Registration successful');
-            } catch (error) {
-                alert('Registration failed: ' + error.message);
-            }
+      createRoomButton.addEventListener('click', () => {
+        if (auth.currentUser) {
+          roomPopup.style.display = 'block';
+        } else {
+          authPopup.style.display = 'block';
         }
+      });
 
-        document.getElementById("googleSignIn").addEventListener("click", async () => {
-            try {
-                const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                console.log("User signed in:", user);
-            } catch (error) {
-                console.error("Error signing in:", error);
-            }
-        });
+      closeAuthPopup.addEventListener('click', () => {
+        authPopup.style.display = 'none';
+      });
 
-        document.getElementById("signOut").addEventListener("click", async () => {
-            try {
-                await signOut(auth);
-                console.log("User signed out");
-            } catch (error) {
-                console.error("Error signing out:", error);
-            }
-        });
+      document.getElementById('signup-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        createUserWithEmailAndPassword(auth, email, password)
+          .then((userCredential) => {
+            console.log('User signed up:', userCredential.user);
+            authPopup.style.display = 'none';
+            roomPopup.style.display = 'block';
+          })
+          .catch((error) => {
+            console.error('Error signing up:', error.message);
+          });
+      });
 
-        let isLoggedIn = false;
+      document.getElementById('login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        signInWithEmailAndPassword(auth, email, password)
+          .then((userCredential) => {
+            console.log('User logged in:', userCredential.user);
+            authPopup.style.display = 'none';
+            roomPopup.style.display = 'block';
+          })
+          .catch((error) => {
+            console.error('Error logging in:', error.message);
+          });
+      });
 
-        function checkLogin() {
-            if (!isLoggedIn) {
-                alert("Please sign in to create a meeting.");
-                return false;
-            }
-            return true;
-        }
-
-        function showMeetingMenu() {
-            if (checkLogin()) {
-                document.getElementById('meetingMenu').style.display = 'block';
-            }
-        }
-
-        function hideMeetingMenu() {
-            document.getElementById('meetingMenu').style.display = 'none';
-        }
-
-        function confirmMeeting() {
-            const meetingName = document.getElementById('meetingName').value;
-            if (meetingName) {
-                alert(`Meeting "${meetingName}" created!`);
-                hideMeetingMenu();
-                displayConfirmedMeeting(meetingName);
-            } else {
-                alert("Please enter a meeting name.");
-            }
-        }
-
-        function displayConfirmedMeeting(meetingName) {
-            const confirmedMeeting = document.getElementById('confirmedMeeting');
-            confirmedMeeting.innerHTML = `
-                <div class="meetingButton">
-                    <span>${meetingName}</span>
-                    <button onclick="startMeeting()">▶️</button>
-                    <button onclick="deleteMeeting()">🗑️</button>
-                </div>
-            `;
-        }
-
-        function startMeeting() {
-            window.location.href = 'meeting.html'; // Navigate to the meeting page
-        }
-
-        function deleteMeeting() {
-            const confirmedMeeting = document.getElementById('confirmedMeeting');
-            confirmedMeeting.innerHTML = '';
-        }
-
-        // Event listeners
-        document.getElementById('createMeeting').addEventListener('click', showMeetingMenu);
-        document.getElementById('confirmMeeting').addEventListener('click', confirmMeeting);
-    </script>
+      confirmRoom.addEventListener('click', () => {
+        const roomName = document.getElementById('room-name').value;
+        console.log('Room created:', roomName);
+        window.location.href = 'room.html'; // Change to the path of your room page
+      });
+    });
+  </script>
 </head>
 <body>
-    <header>
-        <div id="accountInfo">
-            <button id="loginButton">Login</button>
-            <button id="signOut" style="display: none;">Sign Out</button>
-        </div>
-        <button id="manageAccount" style="display: none;">Manage Account</button>
-    </header>
-
-    <main>
-        <h1>EasyPeerToPeer</h1>
-        <button id="createMeeting">Create Meeting</button>
-
-        <div id="meetingArea">
-            <!-- Placeholder for the next page content -->
-        </div>
-
-        <div id="previousMeetings"></div>
-
-        <div id="aboutSection">
-            <h2>About EasyPeerToPeer</h2>
-            <p id="aboutContent" contenteditable="true">
-                Click here to edit the about section. Describe your EasyPeerToPeer service and its benefits.
-            </p>
-        </div>
-
-        <div id="meetingMenu">
-            <h2>Create Meeting</h2>
-            <input type="text" id="meetingName" placeholder="Meeting Name">
-            <button id="confirmMeeting">Okay</button>
-        </div>
-        <div id="confirmedMeeting"></div>
-    </main>
-
-    <div id="auth">
-        <h2>Login</h2>
-        <input type="text" id="loginUsername" placeholder="Email">
-        <input type="password" id="loginPassword" placeholder="Password">
-        <button onclick="login()">Login</button>
-        
-        <h2>Register</h2>
-        <input type="text" id="registerUsername" placeholder="Email">
-        <input type="password" id="registerPassword" placeholder="Password">
-        <button onclick="register()">Register</button>
-        
-        <button id="googleSignIn">Sign in with Google</button>
+  <header>
+    <h1>EasyPeer2Peer</h1>
+    <div class="user-info" id="user-info"></div>
+  </header>
+  <main>
+    <button id="create-room-button">Create Room</button>
+    <div class="popup" id="auth-popup">
+      <span class="close" id="close-auth-popup">&times;</span>
+      <form id="signup-form">
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button type="submit">Sign Up</button>
+      </form>
+      <form id="login-form">
+        <input type="email" id="login-email" placeholder="Email">
+        <input type="password" id="login-password" placeholder="Password">
+        <button type="submit">Log In</button>
+      </form>
     </div>
+    <div class="room-popup" id="room-popup">
+      <h3>Name Your Room</h3>
+      <input type="text" id="room-name" placeholder="Room Name">
+      <div class="green-button" id="confirm-room">&#x27A4;</div>
+    </div>
+    <div class="about-us">
+      <h2>About Us</h2>
+      <p>We are a cutting-edge peer-to-peer WebSocket application dedicated to making conference calls more streamlined and user-friendly. Our mission is to revolutionize the way you connect and communicate, providing seamless and efficient peer-to-peer interactions.</p>
+    </div>
+  </main>
 </body>
 </html>
-
