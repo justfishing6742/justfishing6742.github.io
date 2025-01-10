@@ -207,7 +207,7 @@
       confirmRoom.addEventListener('click', () => {
         const roomName = document.getElementById('room-name').value;
         console.log('Room created:', roomName);
-        window.location.href = 'room.html'; // Change to the path of your room page
+        window.location.href = `meeting.html?room=${roomName}`; // Navigate to meeting.html with room name as query parameter
       });
     });
   </script>
