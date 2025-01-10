@@ -87,6 +87,7 @@
     <header>
         <div id="accountInfo">
             <button id="loginButton">Login</button>
+            <button id="signOut" style="display: none;">Sign Out</button>
         </div>
         <button id="manageAccount" style="display: none;">Manage Account</button>
     </header>
@@ -126,9 +127,13 @@
         <input type="text" id="registerUsername" placeholder="Email">
         <input type="password" id="registerPassword" placeholder="Password">
         <button onclick="register()">Register</button>
+        
+        <button id="googleSignIn">Sign in with Google</button>
     </div>
 
-    <script>
+    <script type="module">
+        import { GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
         // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
@@ -143,17 +148,20 @@
         firebase.initializeApp(firebaseConfig);
 
         const auth = firebase.auth();
+        const provider = new GoogleAuthProvider();
 
         auth.onAuthStateChanged(user => {
             if (user) {
                 // User is signed in
                 document.getElementById('loginButton').textContent = user.email;
                 document.getElementById('manageAccount').style.display = 'block';
+                document.getElementById('signOut').style.display = 'block';
                 isLoggedIn = true;
             } else {
                 // User is signed out
                 document.getElementById('loginButton').textContent = 'Login';
                 document.getElementById('manageAccount').style.display = 'none';
+                document.getElementById('signOut').style.display = 'none';
                 isLoggedIn = false;
             }
         });
@@ -181,38 +189,39 @@
             }
         }
 
+        document.getElementById("googleSignIn").addEventListener("click", async () => {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                console.log("User signed in:", user);
+            } catch (error) {
+                console.error("Error signing in:", error);
+            }
+        });
+
+        document.getElementById("signOut").addEventListener("click", async () => {
+            try {
+                await signOut(auth);
+                console.log("User signed out");
+            } catch (error) {
+                console.error("Error signing out:", error);
+            }
+        });
+
         let isLoggedIn = false;
 
         function checkLogin() {
             if (!isLoggedIn) {
-                alert("Please create an account to continue.");
-                // Here you would typically show a sign-up form or redirect to a sign-up page
-            } else {
-                // Proceed to next page
-                document.getElementById('meetingArea').innerHTML = '<p>Loading meeting page...</p>';
-                // Here you would typically load the next page content
+                alert("Please sign in to create a meeting.");
+                return false;
             }
-        }
-
-        function updateUIForLoggedInUser() {
-            document.getElementById('loginButton').textContent = 'John Doe'; // Replace with actual user name
-            document.getElementById('manageAccount').style.display = 'block';
-            
-            // Populate previous meetings (up to 3)
-            const previousMeetings = document.getElementById('previousMeetings');
-            previousMeetings.innerHTML = `
-                <h3>Previous Meetings</h3>
-                <ul>
-                    <li>Meeting 1 - 2023-05-01</li>
-                    <li>Meeting 2 - 2023-05-05</li>
-                    <li>Meeting 3 - 2023-05-10</li>
-                </ul>
-                <button id="seeMoreMeetings">See More</button>
-            `;
+            return true;
         }
 
         function showMeetingMenu() {
-            document.getElementById('meetingMenu').style.display = 'block';
+            if (checkLogin()) {
+                document.getElementById('meetingMenu').style.display = 'block';
+            }
         }
 
         function hideMeetingMenu() {
