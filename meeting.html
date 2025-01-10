@@ -1,163 +1,233 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCFj83jGuDsGRb4KVRVeBgyQQ0LuiGTufA",
-  authDomain: "oaauth-e0c4d.firebaseapp.com",
-  projectId: "oaauth-e0c4d",
-  storageBucket: "oaauth-e0c4d.firebasestorage.app",
-  messagingSenderId: "76089646716",
-  appId: "1:76089646716:web:7563461b855ce67e56b3f9",
-  measurementId: "G-KJZ6DQD73B"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+import { getAuth } from "firebase/auth";
 
 const VoiceChatRoom = () => {
   const [showJoinForm, setShowJoinForm] = useState(true);
   const [name, setName] = useState('');
   const [roomLink, setRoomLink] = useState('');
   const [participants, setParticipants] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+  
   const ws = useRef(null);
   const peerConnection = useRef(null);
-  const dataChannel = useRef(null);
+  const localStream = useRef(null);
+  const reconnectTimeout = useRef(null);
 
   useEffect(() => {
-    const roomId = new URLSearchParams(window.location.search).get('room') || Math.random().toString(36).substring(2, 15);
-    setRoomLink(`${window.location.origin}${window.location.pathname}?room=${roomId}`);
-    
-    ws.current = new WebSocket('wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app');
-    
-    ws.current.onopen = () => console.log('WebSocket connection established');
-    
-    ws.current.onmessage = handleMessage;
-    
-    ws.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      alert('WebSocket connection error. Please try again later.');
-    };
-    
-    ws.current.onclose = (event) => {
-      console.log('WebSocket connection closed:', event);
-      if (!event.wasClean) {
-        alert('WebSocket connection closed unexpectedly. Please try again later.');
-      }
-    };
-
-    return () => {
-      ws.current.close();
-    };
+    initializeWebSocket();
+    return () => cleanup();
   }, []);
 
-  const handleJoin = () => {
-    if (!name) return;
-    setShowJoinForm(false);
-    const roomId = new URLSearchParams(window.location.search).get('room') || Math.random().toString(36).substring(2, 15);
-    setRoomLink(`${window.location.origin}${window.location.pathname}?room=${roomId}`);
+  const initializeWebSocket = () => {
+    try {
+      const roomId = new URLSearchParams(window.location.search).get('room') || 
+                     Math.random().toString(36).substring(2, 15);
+      setRoomLink(`${window.location.origin}${window.location.pathname}?room=${roomId}`);
+      
+      ws.current = new WebSocket('wss://signal-v2-6203u5gsn-cullen-harrisons-projects.vercel.app');
+      
+      ws.current.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        if (reconnectTimeout.current) {
+          clearTimeout(reconnectTimeout.current);
+          reconnectTimeout.current = null;
+        }
+      };
+      
+      ws.current.onmessage = handleMessage;
+      
+      ws.current.onerror = handleWebSocketError;
+      
+      ws.current.onclose = handleWebSocketClose;
+    } catch (error) {
+      console.error('WebSocket initialization failed:', error);
+      scheduleReconnect();
+    }
+  };
+
+  const handleWebSocketError = (error) => {
+    console.error('WebSocket error:', error);
+    setIsConnected(false);
+    scheduleReconnect();
+  };
+
+  const handleWebSocketClose = (event) => {
+    console.log('WebSocket closed:', event);
+    setIsConnected(false);
+    if (!event.wasClean) {
+      scheduleReconnect();
+    }
+  };
+
+  const scheduleReconnect = () => {
+    if (!reconnectTimeout.current) {
+      reconnectTimeout.current = setTimeout(() => {
+        initializeWebSocket();
+      }, 5000);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!name || !isConnected) return;
     
-    ws.current.send(JSON.stringify({
-      type: 'join',
-      name: name,
-      room: roomId
-    }));
+    try {
+      localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setShowJoinForm(false);
+      
+      const roomId = new URLSearchParams(window.location.search).get('room');
+      ws.current?.send(JSON.stringify({
+        type: 'join',
+        name: name,
+        room: roomId
+      }));
 
-    setParticipants([{ name }]);
-
-    setupPeerConnection();
-  };
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(roomLink);
-  };
-
-  const handleMessage = (event) => {
-    const message = JSON.parse(event.data);
-
-    switch (message.type) {
-      case 'userJoined':
-        setParticipants((prevParticipants) => [...prevParticipants, { name: message.name }]);
-        break;
-      case 'userLeft':
-        setParticipants((prevParticipants) => prevParticipants.filter(participant => participant.name !== message.name));
-        break;
-      case 'offer':
-        handleOffer(message.offer);
-        break;
-      case 'answer':
-        handleAnswer(message.answer);
-        break;
-      case 'candidate':
-        handleCandidate(message.candidate);
-        break;
-      default:
-        break;
+      setParticipants([{ name }]);
+      setupPeerConnection();
+      
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Unable to access microphone. Please check permissions.');
     }
   };
 
   const setupPeerConnection = () => {
-    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const configuration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
     peerConnection.current = new RTCPeerConnection(configuration);
 
-    peerConnection.current.addEventListener('icecandidate', event => {
-      if (event.candidate) {
-        ws.current.send(JSON.stringify({
-          type: 'candidate',
-          candidate: event.candidate,
-          room: new URLSearchParams(window.location.search).get('room')
-        }));
-      }
+    // Add local stream tracks to peer connection
+    localStream.current.getTracks().forEach(track => {
+      peerConnection.current.addTrack(track, localStream.current);
     });
 
-    peerConnection.current.addEventListener('datachannel', event => {
-      const receiveChannel = event.channel;
-      receiveChannel.onmessage = (event) => {
-        console.log('Received Message:', event.data);
-        alert('Message: ' + event.data);
-      };
-    });
-
-    dataChannel.current = peerConnection.current.createDataChannel('chat');
-    dataChannel.current.onopen = () => console.log('Data channel is open');
-    dataChannel.current.onmessage = (event) => {
-      console.log('Received Message:', event.data);
-      alert('Message: ' + event.data);
-    };
+    peerConnection.current.ontrack = handleRemoteStream;
+    peerConnection.current.onicecandidate = handleICECandidate;
+    peerConnection.current.oniceconnectionstatechange = handleICEConnectionStateChange;
 
     createOffer();
   };
 
-  const createOffer = async () => {
-    const offer = await peerConnection.current.createOffer();
-    await peerConnection.current.setLocalDescription(offer);
+  const handleRemoteStream = (event) => {
+    const remoteAudio = new Audio();
+    remoteAudio.srcObject = event.streams[0];
+    remoteAudio.play();
+  };
 
-    ws.current.send(JSON.stringify({
-      type: 'offer',
-      offer: offer,
-      room: new URLSearchParams(window.location.search).get('room')
-    }));
+  const handleICECandidate = (event) => {
+    if (event.candidate && ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        type: 'candidate',
+        candidate: event.candidate,
+        room: new URLSearchParams(window.location.search).get('room')
+      }));
+    }
+  };
+
+  const handleICEConnectionStateChange = () => {
+    if (peerConnection.current) {
+      console.log('ICE Connection State:', peerConnection.current.iceConnectionState);
+      if (peerConnection.current.iceConnectionState === 'failed') {
+        peerConnection.current.restartIce();
+      }
+    }
+  };
+
+  const createOffer = async () => {
+    try {
+      const offer = await peerConnection.current.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: false
+      });
+      await peerConnection.current.setLocalDescription(offer);
+
+      ws.current?.send(JSON.stringify({
+        type: 'offer',
+        offer: offer,
+        room: new URLSearchParams(window.location.search).get('room')
+      }));
+    } catch (error) {
+      console.error('Error creating offer:', error);
+    }
+  };
+
+  const handleMessage = async (event) => {
+    const message = JSON.parse(event.data);
+
+    switch (message.type) {
+      case 'userJoined':
+        setParticipants(prev => [...prev, { name: message.name }]);
+        break;
+      case 'userLeft':
+        setParticipants(prev => prev.filter(p => p.name !== message.name));
+        break;
+      case 'offer':
+        await handleOffer(message.offer);
+        break;
+      case 'answer':
+        await handleAnswer(message.answer);
+        break;
+      case 'candidate':
+        await handleCandidate(message.candidate);
+        break;
+    }
   };
 
   const handleOffer = async (offer) => {
-    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.current.createAnswer();
-    await peerConnection.current.setLocalDescription(answer);
+    try {
+      await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnection.current.createAnswer();
+      await peerConnection.current.setLocalDescription(answer);
 
-    ws.current.send(JSON.stringify({
-      type: 'answer',
-      answer: answer,
-      room: new URLSearchParams(window.location.search).get('room')
-    }));
+      ws.current?.send(JSON.stringify({
+        type: 'answer',
+        answer: answer,
+        room: new URLSearchParams(window.location.search).get('room')
+      }));
+    } catch (error) {
+      console.error('Error handling offer:', error);
+    }
   };
 
   const handleAnswer = async (answer) => {
-    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+    try {
+      await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (error) {
+      console.error('Error handling answer:', error);
+    }
   };
 
   const handleCandidate = async (candidate) => {
-    await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+    try {
+      await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      console.error('Error handling ICE candidate:', error);
+    }
+  };
+
+  const cleanup = () => {
+    if (localStream.current) {
+      localStream.current.getTracks().forEach(track => track.stop());
+    }
+    if (peerConnection.current) {
+      peerConnection.current.close();
+    }
+    if (ws.current) {
+      ws.current.close();
+    }
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+    }
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(roomLink);
   };
 
   return (
@@ -207,7 +277,8 @@ const VoiceChatRoom = () => {
               />
               <button
                 onClick={handleJoin}
-                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full"
+                disabled={!isConnected}
+                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full disabled:opacity-50"
               >
                 Join Room
               </button>
