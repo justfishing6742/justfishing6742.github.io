@@ -3,149 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Room</title>
+    <title>Meeting Room</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin: 0;
             padding: 0;
-        }
-        .menu, .slots {
             display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
+            background-color: #f0f8ff;
         }
-        .menu {
-            background-color: #f0f0f0;
-        }
-        .slots {
-            display: none;
-            flex-wrap: wrap;
-            background-color: #ffffff;
-        }
-        .slot {
-            width: 120px;
-            height: 150px;
-            margin: 10px;
-            border: 2px dashed #ccc;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-        }
-        .slot img {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: #eee;
-        }
-        .slot span {
-            margin-top: 10px;
-            font-size: 14px;
+        h1 {
             color: #333;
         }
+        .participants {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .participant {
+            width: 60px;
+            height: 60px;
+            background-color: #ddd;
+            margin: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #333;
+        }
+        .participant span {
+            display: block;
+            font-size: 12px;
+            text-align: center;
+        }
     </style>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- Join Menu -->
-    <div class="menu">
-        <h1>Join the Room</h1>
-        <input type="text" id="nameInput" placeholder="Enter your name" required>
-        <button id="joinButton">Join</button>
-    </div>
+    <h1>Meeting Room</h1>
+    <div id="roomName"></div>
+    <div class="participants" id="participantsList"></div>
 
-    <!-- Participant Slots -->
-    <div class="slots" id="slotsContainer">
-        <!-- Slots will be dynamically created here -->
-    </div>
-
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script>
-        const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://signal-server-v2.vercel.app";
-        const socket = io(serverURL);
-        let userName = "";
+        // Connect to the updated signaling server
+        const socket = io('https://signal-server-v2-ddfuvie72-cullen-harrisons-projects.vercel.app'); // New URL
 
-        const menu = document.querySelector('.menu');
-        const slotsContainer = document.getElementById('slotsContainer');
-        const nameInput = document.getElementById('nameInput');
-        const joinButton = document.getElementById('joinButton');
+        // Get the room name from the URL parameters
+        const params = new URLSearchParams(window.location.search);
+        const roomName = params.get('room') || 'default-room';
 
-        // Initialize empty slots
-        const participants = Array(MAX_PARTICIPANTS).fill(null);
+        // Display the room name
+        document.getElementById('roomName').textContent = `Room: ${roomName}`;
 
-        function renderSlots() {
-            slotsContainer.innerHTML = ''; // Clear previous slots
+        // Create the participant slots (12 slots)
+        const participantsList = document.getElementById('participantsList');
+        for (let i = 0; i < 12; i++) {
+            const participantSlot = document.createElement('div');
+            participantSlot.classList.add('participant');
+            participantSlot.id = `participant-${i}`;
+            participantSlot.innerHTML = `<span>Empty</span>`;
+            participantsList.appendChild(participantSlot);
+        }
+
+        // Emit join event when the user joins the room
+        socket.emit('join', { name: roomName });
+
+        // Listen for updates about participants joining or leaving
+        socket.on('updateParticipants', (participants) => {
+            // Clear all participant slots
+            for (let i = 0; i < 12; i++) {
+                const slot = document.getElementById(`participant-${i}`);
+                slot.innerHTML = `<span>Empty</span>`;
+            }
+
+            // Fill participant slots with names
             participants.forEach((participant, index) => {
-                const slot = document.createElement('div');
-                slot.classList.add('slot');
-
-                const avatar = document.createElement('img');
-                avatar.src = participant ? `https://api.dicebear.com/6.x/initials/svg?seed=${participant.name}` : '';
-                avatar.alt = participant ? participant.name : 'Empty';
-
-                const name = document.createElement('span');
-                name.textContent = participant ? participant.name : 'Empty';
-
-                slot.appendChild(avatar);
-                slot.appendChild(name);
-                slotsContainer.appendChild(slot);
+                if (index < 12) {
+                    const slot = document.getElementById(`participant-${index}`);
+                    slot.innerHTML = `<span>${participant.name}</span>`;
+                }
             });
-        }
-
-        function joinRoom() {
-            userName = nameInput.value.trim();
-            if (!userName) {
-                alert("Please enter a name!");
-                return;
-            }
-
-            // Hide the menu and show slots
-            menu.style.display = 'none';
-            slotsContainer.style.display = 'flex';
-
-            // Send join message to server
-            socket.emit('join', { name: userName });
-
-            // Add self to participants
-            const emptySlotIndex = participants.findIndex((p) => p === null);
-            if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = { id: socket.id, name: userName };
-            }
-            renderSlots();
-        }
-
-        socket.on('updateParticipants', (updatedParticipants) => {
-            // Update the participants array and re-render
-            for (let i = 0; i < MAX_PARTICIPANTS; i++) {
-                participants[i] = updatedParticipants[i] || null;
-            }
-            renderSlots();
         });
 
-        // Emit to server on joining
-        joinButton.addEventListener('click', joinRoom);
-
-        // Listen for new participants
+        // Listen for participant joining
         socket.on('joined', (participant) => {
-            const emptySlotIndex = participants.findIndex((p) => p === null);
-            if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = participant;
-                renderSlots();
-            }
+            console.log(`${participant.name} joined the room.`);
         });
 
-        // Listen for participants leaving
-        socket.on('left', (id) => {
-            const index = participants.findIndex((p) => p && p.id === id);
-            if (index !== -1) {
-                participants[index] = null;
-                renderSlots();
-            }
+        // Listen for participant leaving
+        socket.on('left', (socketId) => {
+            console.log(`Participant with ID ${socketId} left the room.`);
         });
     </script>
 </body>
