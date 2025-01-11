@@ -20,6 +20,7 @@
     <div class="menu">
         <h1>Join the Room</h1>
         <input type="text" id="nameInput" placeholder="Enter your name" required>
+        <input type="text" id="roomIdInput" placeholder="Enter Room ID" required>
         <button id="joinButton">Join</button>
     </div>
 
@@ -27,14 +28,16 @@
     <div class="slots" id="slotsContainer"></div>
 
     <script>
-        const MAX_PARTICIPANTS = 12;https://vercel-v5-kdsv-2ohe5o0l2-cullen-harrisons-projects.vercel.app/
-        const serverURL = ""; // https://vercel-v5-kdsv-2ohe5o0l2-cullen-harrisons-projects.vercel.app/
+        const MAX_PARTICIPANTS = 12;
+        const serverURL = "https://vercel-v5-kdsv-2ohe5o0l2-cullen-harrisons-projects.vercel.app/"; // Replace with your signaling server URL
         const socket = io(serverURL);
         let userName = "";
+        let roomId = "";
 
         const menu = document.querySelector('.menu');
         const slotsContainer = document.getElementById('slotsContainer');
         const nameInput = document.getElementById('nameInput');
+        const roomIdInput = document.getElementById('roomIdInput');
         const joinButton = document.getElementById('joinButton');
         const participants = Array(MAX_PARTICIPANTS).fill(null);
 
@@ -56,47 +59,44 @@
 
         function joinRoom() {
             userName = nameInput.value.trim();
-            if (!userName) {
-                alert("Please enter a name!");
+            roomId = roomIdInput.value.trim();
+
+            if (!userName || !roomId) {
+                alert("Please enter both your name and room ID!");
                 return;
             }
 
             menu.style.display = 'none';
             slotsContainer.style.display = 'flex';
 
-            socket.emit('join', { name: userName });
+            const userId = socket.id; // Use the socket ID as the user ID
+
+            socket.emit('join-room', roomId, userId);
 
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = { id: socket.id, name: userName };
+                participants[emptySlotIndex] = { id: userId, name: userName };
             }
             renderSlots();
         }
 
-        socket.on('updateParticipants', (updatedParticipants) => {
-            for (let i = 0; i < MAX_PARTICIPANTS; i++) {
-                participants[i] = updatedParticipants[i] || null;
-            }
-            renderSlots();
-        });
-
-        joinButton.addEventListener('click', joinRoom);
-
-        socket.on('joined', (participant) => {
+        socket.on('user-connected', (userId) => {
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = participant;
+                participants[emptySlotIndex] = { id: userId, name: `User ${userId.slice(0, 5)}` }; // Default name
                 renderSlots();
             }
         });
 
-        socket.on('left', (id) => {
-            const index = participants.findIndex((p) => p && p.id === id);
+        socket.on('user-disconnected', (userId) => {
+            const index = participants.findIndex((p) => p && p.id === userId);
             if (index !== -1) {
                 participants[index] = null;
                 renderSlots();
             }
         });
+
+        joinButton.addEventListener('click', joinRoom);
     </script>
 </body>
 </html>
