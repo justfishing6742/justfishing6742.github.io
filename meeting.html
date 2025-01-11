@@ -5,49 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Room</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-        }
-        .menu, .slots {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        .menu {
-            background-color: #f0f0f0;
-        }
-        .slots {
-            display: none;
-            flex-wrap: wrap;
-            background-color: #ffffff;
-        }
-        .slot {
-            width: 120px;
-            height: 150px;
-            margin: 10px;
-            border: 2px dashed #ccc;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-        }
-        .slot img {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: #eee;
-        }
-        .slot span {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #333;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 0; }
+        .menu, .slots { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .menu { background-color: #f0f0f0; }
+        .slots { display: none; flex-wrap: wrap; background-color: #ffffff; }
+        .slot { width: 120px; height: 150px; margin: 10px; border: 2px dashed #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; }
+        .slot img { width: 60px; height: 60px; border-radius: 50%; background-color: #eee; }
+        .slot span { margin-top: 10px; font-size: 14px; color: #333; }
     </style>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
@@ -60,38 +24,30 @@
     </div>
 
     <!-- Participant Slots -->
-    <div class="slots" id="slotsContainer">
-        <!-- Slots will be dynamically created here -->
-    </div>
+    <div class="slots" id="slotsContainer"></div>
 
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://signal-server-v2-20ca5d78d-cullen-harrisons-projects.vercel.app"; // Your signaling server URL
+        const serverURL = "https://your-vercel-signaling-server.vercel.app"; // Update this with your Vercel signaling server URL
         const socket = io(serverURL);
         let userName = "";
-        let roomName = "defaultRoom"; // You can set the room dynamically if needed
 
         const menu = document.querySelector('.menu');
         const slotsContainer = document.getElementById('slotsContainer');
         const nameInput = document.getElementById('nameInput');
         const joinButton = document.getElementById('joinButton');
-
-        // Initialize empty slots
         const participants = Array(MAX_PARTICIPANTS).fill(null);
 
         function renderSlots() {
-            slotsContainer.innerHTML = ''; // Clear previous slots
+            slotsContainer.innerHTML = '';
             participants.forEach((participant, index) => {
                 const slot = document.createElement('div');
                 slot.classList.add('slot');
-
                 const avatar = document.createElement('img');
                 avatar.src = participant ? `https://api.dicebear.com/6.x/initials/svg?seed=${participant.name}` : '';
                 avatar.alt = participant ? participant.name : 'Empty';
-
                 const name = document.createElement('span');
                 name.textContent = participant ? participant.name : 'Empty';
-
                 slot.appendChild(avatar);
                 slot.appendChild(name);
                 slotsContainer.appendChild(slot);
@@ -105,14 +61,11 @@
                 return;
             }
 
-            // Hide the menu and show slots
             menu.style.display = 'none';
             slotsContainer.style.display = 'flex';
 
-            // Send join message to server with the room name and user details
-            socket.emit('join', { name: userName, room: roomName });
+            socket.emit('join', { name: userName });
 
-            // Add self to participants
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
                 participants[emptySlotIndex] = { id: socket.id, name: userName };
@@ -121,17 +74,14 @@
         }
 
         socket.on('updateParticipants', (updatedParticipants) => {
-            // Update the participants array and re-render
             for (let i = 0; i < MAX_PARTICIPANTS; i++) {
                 participants[i] = updatedParticipants[i] || null;
             }
             renderSlots();
         });
 
-        // Emit to server on joining
         joinButton.addEventListener('click', joinRoom);
 
-        // Listen for new participants joining
         socket.on('joined', (participant) => {
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
@@ -140,7 +90,6 @@
             }
         });
 
-        // Listen for participants leaving
         socket.on('left', (id) => {
             const index = participants.findIndex((p) => p && p.id === id);
             if (index !== -1) {
