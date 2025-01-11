@@ -66,9 +66,10 @@
 
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://signal-server-v2-20ca5d78d-cullen-harrisons-projects.vercel.app";
+        const serverURL = "https://signal-server-v2-20ca5d78d-cullen-harrisons-projects.vercel.app"; // Your signaling server URL
         const socket = io(serverURL);
         let userName = "";
+        let roomName = "defaultRoom"; // You can set the room dynamically if needed
 
         const menu = document.querySelector('.menu');
         const slotsContainer = document.getElementById('slotsContainer');
@@ -108,8 +109,8 @@
             menu.style.display = 'none';
             slotsContainer.style.display = 'flex';
 
-            // Send join message to server
-            socket.emit('join', { name: userName });
+            // Send join message to server with the room name and user details
+            socket.emit('join', { name: userName, room: roomName });
 
             // Add self to participants
             const emptySlotIndex = participants.findIndex((p) => p === null);
@@ -130,7 +131,7 @@
         // Emit to server on joining
         joinButton.addEventListener('click', joinRoom);
 
-        // Listen for new participants
+        // Listen for new participants joining
         socket.on('joined', (participant) => {
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
@@ -150,4 +151,3 @@
     </script>
 </body>
 </html>
-
