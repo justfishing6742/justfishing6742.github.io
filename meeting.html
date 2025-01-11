@@ -12,6 +12,9 @@
         .slot { width: 120px; height: 150px; margin: 10px; border: 2px dashed #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; }
         .slot img { width: 60px; height: 60px; border-radius: 50%; background-color: #eee; }
         .slot span { margin-top: 10px; font-size: 14px; color: #333; }
+        input, button { margin: 10px; padding: 10px; font-size: 16px; }
+        button { cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
+        button:hover { background-color: #45a049; }
     </style>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
@@ -27,8 +30,16 @@
 
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-1iy4kmh3i-cullen-harrisons-projects.vercel.app/"; // Replace with your actual Vercel deployment URL
-        const socket = io(serverURL, { withCredentials: true });
+        const serverURL = "https://vercel-v5-kdsv-1iy4kmh3i-cullen-harrisons-projects.vercel.app";
+        const socket = io(serverURL, { 
+            withCredentials: true,
+            transports: ['websocket'],
+            upgrade: false
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
 
         socket.on('connect_error', (error) => {
             console.error('Connection Error:', error);
@@ -84,6 +95,7 @@
         }
 
         socket.on('user-connected', (userId, userName) => {
+            console.log('User connected:', userId, userName);
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
                 participants[emptySlotIndex] = { id: userId, name: userName || `User ${userId.slice(0, 5)}` };
@@ -92,6 +104,7 @@
         });
 
         socket.on('user-disconnected', (userId) => {
+            console.log('User disconnected:', userId);
             const index = participants.findIndex((p) => p && p.id === userId);
             if (index !== -1) {
                 participants[index] = null;
@@ -100,6 +113,9 @@
         });
 
         joinButton.addEventListener('click', joinRoom);
+
+        // Initial render
+        renderSlots();
     </script>
 </body>
 </html>
