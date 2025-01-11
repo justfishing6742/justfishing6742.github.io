@@ -3,39 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Room</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 0; }
-        .menu, .slots { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        .menu { background-color: #f0f0f0; }
-        .slots { display: none; flex-wrap: wrap; background-color: #ffffff; }
-        .slot { width: 120px; height: 150px; margin: 10px; border: 2px dashed #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; }
-        .slot img { width: 60px; height: 60px; border-radius: 50%; background-color: #eee; }
-        .slot span { margin-top: 10px; font-size: 14px; color: #333; }
-        input, button { margin: 10px; padding: 10px; font-size: 16px; }
-        button { cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
-        button:hover { background-color: #45a049; }
-    </style>
+    <title>WebRTC Meeting Room</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        #video-grid { display: grid; grid-template-columns: repeat(auto-fill, 300px); grid-auto-rows: 300px; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #room-controls { margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-    <div class="menu">
-        <h1>Join the Room</h1>
-        <input type="text" id="nameInput" placeholder="Enter your name" required>
-        <input type="text" id="roomIdInput" placeholder="Enter Room ID" required>
-        <button id="joinButton">Join</button>
+    <div id="room-controls">
+        <input type="text" id="room-id" placeholder="Enter Room ID">
+        <input type="text" id="user-name" placeholder="Enter Your Name">
+        <button onclick="joinRoom()">Join Room</button>
     </div>
-
-    <div class="slots" id="slotsContainer"></div>
+    <div id="video-grid"></div>
 
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-npya0mhln-cullen-harrisons-projects.vercel.app/";
+        const serverURL = "https://vercel-v5-kdsv-1iy4kmh3i-cullen-harrisons-projects.vercel.app";
         const socket = io(serverURL, { 
             withCredentials: true,
-            transports: ['websocket'],
-            upgrade: false
+            transports: ['websocket', 'polling'],
+            upgrade: true
         });
+
+        const videoGrid = document.getElementById('video-grid');
+        const myPeer = new Peer(undefined, {
+            host: '/',
+            port: '443',
+            path: '/peerjs/myapp'
+        });
+
+        const myVideo = document.createElement('video');
+        myVideo.muted = true;
+        const peers = {};
+
+        navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        }).then(stream => {
+            addVideoStream(myVideo, stream);
+
+            myPeer.on('call', call => {
+                call.answer(stream);
+                const video = document.createElement('video');
+                call.on('stream', userVideoStream => {
+                    addVideoStream(video, userVideoStream);
+                });
+            });
+
+            socket.on('user-connected', (userId, userName) => {
+                console.log('User connected:', userId, userName);
+                connectToNewUser(userId, stream);
+            });
+        });
+
+        socket.on('user-disconnected', userId => {
+            if (peers[userId]) peers[userId].close();
+        });
+
+        myPeer.on('open', id => {
+            console.log('My peer ID is:', id);
+        });
+
+        function joinRoom() {
+            const roomId = document.getElementById('room-id').value;
+            const userName = document.getElementById('user-name').value;
+            if (roomId && userName) {
+                console.log('Joining room:', roomId, 'as', userName);
+                socket.emit('join-room', roomId, myPeer.id, userName);
+            } else {
+                alert('Please enter both Room ID and Your Name');
+            }
+        }
+
+        function connectToNewUser(userId, stream) {
+            const call = myPeer.call(userId, stream);
+            const video = document.createElement('video');
+            call.on('stream', userVideoStream => {
+                addVideoStream(video, userVideoStream);
+            });
+            call.on('close', () => {
+                video.remove();
+            });
+
+            peers[userId] = call;
+        }
+
+        function addVideoStream(video, stream) {
+            video.srcObject = stream;
+            video.addEventListener('loadedmetadata', () => {
+                video.play();
+            });
+            videoGrid.append(video);
+        }
 
         socket.on('connect', () => {
             console.log('Connected to server');
@@ -45,77 +109,6 @@
             console.error('Connection Error:', error);
             alert('Failed to connect to the server. Please try again later.');
         });
-
-        let userName = "";
-        let roomId = "";
-
-        const menu = document.querySelector('.menu');
-        const slotsContainer = document.getElementById('slotsContainer');
-        const nameInput = document.getElementById('nameInput');
-        const roomIdInput = document.getElementById('roomIdInput');
-        const joinButton = document.getElementById('joinButton');
-        const participants = Array(MAX_PARTICIPANTS).fill(null);
-
-        function renderSlots() {
-            slotsContainer.innerHTML = '';
-            participants.forEach((participant, index) => {
-                const slot = document.createElement('div');
-                slot.classList.add('slot');
-                const avatar = document.createElement('img');
-                avatar.src = participant ? `https://api.dicebear.com/6.x/initials/svg?seed=${participant.name}` : '';
-                avatar.alt = participant ? participant.name : 'Empty';
-                const name = document.createElement('span');
-                name.textContent = participant ? participant.name : 'Empty';
-                slot.appendChild(avatar);
-                slot.appendChild(name);
-                slotsContainer.appendChild(slot);
-            });
-        }
-
-        function joinRoom() {
-            userName = nameInput.value.trim();
-            roomId = roomIdInput.value.trim();
-
-            if (!userName || !roomId) {
-                alert("Please enter both your name and room ID!");
-                return;
-            }
-
-            menu.style.display = 'none';
-            slotsContainer.style.display = 'flex';
-
-            const userId = socket.id;
-            socket.emit('join-room', roomId, userId, userName);
-
-            const emptySlotIndex = participants.findIndex((p) => p === null);
-            if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = { id: userId, name: userName };
-            }
-            renderSlots();
-        }
-
-        socket.on('user-connected', (userId, userName) => {
-            console.log('User connected:', userId, userName);
-            const emptySlotIndex = participants.findIndex((p) => p === null);
-            if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = { id: userId, name: userName || `User ${userId.slice(0, 5)}` };
-                renderSlots();
-            }
-        });
-
-        socket.on('user-disconnected', (userId) => {
-            console.log('User disconnected:', userId);
-            const index = participants.findIndex((p) => p && p.id === userId);
-            if (index !== -1) {
-                participants[index] = null;
-                renderSlots();
-            }
-        });
-
-        joinButton.addEventListener('click', joinRoom);
-
-        // Initial render
-        renderSlots();
     </script>
 </body>
 </html>
