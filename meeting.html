@@ -16,7 +16,6 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- Join Menu -->
     <div class="menu">
         <h1>Join the Room</h1>
         <input type="text" id="nameInput" placeholder="Enter your name" required>
@@ -24,13 +23,18 @@
         <button id="joinButton">Join</button>
     </div>
 
-    <!-- Participant Slots -->
     <div class="slots" id="slotsContainer"></div>
 
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-1iy4kmh3i-cullen-harrisons-projects.vercel.app/"; // Replace with your signaling server URL
-        const socket = io(serverURL);
+        const serverURL = "https://vercel-v5-kdsv-1iy4kmh3i-cullen-harrisons-projects.vercel.app/"; // Replace with your actual Vercel deployment URL
+        const socket = io(serverURL, { withCredentials: true });
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection Error:', error);
+            alert('Failed to connect to the server. Please try again later.');
+        });
+
         let userName = "";
         let roomId = "";
 
@@ -69,9 +73,8 @@
             menu.style.display = 'none';
             slotsContainer.style.display = 'flex';
 
-            const userId = socket.id; // Use the socket ID as the user ID
-
-            socket.emit('join-room', roomId, userId);
+            const userId = socket.id;
+            socket.emit('join-room', roomId, userId, userName);
 
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
@@ -80,10 +83,10 @@
             renderSlots();
         }
 
-        socket.on('user-connected', (userId) => {
+        socket.on('user-connected', (userId, userName) => {
             const emptySlotIndex = participants.findIndex((p) => p === null);
             if (emptySlotIndex !== -1) {
-                participants[emptySlotIndex] = { id: userId, name: `User ${userId.slice(0, 5)}` }; // Default name
+                participants[emptySlotIndex] = { id: userId, name: userName || `User ${userId.slice(0, 5)}` };
                 renderSlots();
             }
         });
