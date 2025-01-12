@@ -77,7 +77,7 @@
     <div id="video-grid"></div>
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-hjdjvjecp-cullen-harrisons-projects.vercel.app";
+        const serverURL = "https://vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app";
         const socket = io(serverURL, {
             withCredentials: true,
             transports: ['websocket', 'polling'],
@@ -87,7 +87,7 @@
         });
 
         const myPeer = new Peer(undefined, {
-            host: 'vercel-v5-kdsv-hjdjvjecp-cullen-harrisons-projects.vercel.app',
+            host: 'vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app',
             port: 443,
             path: '/peerjs',
             secure: true,
