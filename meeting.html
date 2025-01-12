@@ -20,23 +20,20 @@
         <button onclick="joinRoom()">Join Room</button>
     </div>
     <div id="video-grid"></div>
-
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-746n54gse-cullen-harrisons-projects.vercel.app/";
-        const socket = io(serverURL, { 
+        const serverURL = "https://your-vercel-deployment-url.vercel.app"; // Replace with your actual Vercel deployment URL
+        const socket = io(serverURL, {
             withCredentials: true,
             transports: ['websocket', 'polling'],
             upgrade: true
         });
-
         const videoGrid = document.getElementById('video-grid');
         const myPeer = new Peer(undefined, {
             host: '/',
             port: '443',
             path: '/peerjs/myapp'
         });
-
         const myVideo = document.createElement('video');
         myVideo.muted = true;
         const peers = {};
@@ -89,7 +86,6 @@
             call.on('close', () => {
                 video.remove();
             });
-
             peers[userId] = call;
         }
 
