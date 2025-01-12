@@ -75,157 +75,149 @@
         <button onclick="joinRoom()">Join Room</button>
     </div>
     <div id="video-grid"></div>
-    <script>
-        const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app";
-        const socket = io(serverURL, {
-            withCredentials: true,
-            transports: ['websocket', 'polling'],
-            upgrade: false,
-            reconnectionAttempts: 5,
-            timeout: 10000
-        });
+    const MAX_PARTICIPANTS = 12;
+    const serverURL = "https://vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app";
+    const socket = io(serverURL, {
+        transports: ['websocket', 'polling'],
+        upgrade: false,
+        reconnectionAttempts: 5,
+        timeout: 10000
+    });
 
-        const myPeer = new Peer(undefined, {
-            host: 'vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app',
-            port: 443,
-            path: '/peerjs',
-            secure: true,
-            debug: 3
-        });
-        let myVideo;
-        const peers = {};
-        let myStream;
-        let myUserName = '';
+    const myPeer = new Peer(undefined, {
+        host: 'vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app',
+        port: 443,
+        path: '/peerjs',
+        secure: true,
+        debug: 3
+    });
 
-        function setUserName() {
-            const userName = document.getElementById('user-name').value.trim();
-            if (userName) {
-                myUserName = userName;
-                document.getElementById('login-container').style.display = 'none';
-                document.getElementById('room-controls').style.display = 'block';
-            } else {
-                alert('Please enter your name');
-            }
+    let myVideo;
+    const peers = {};
+    let myStream;
+    let myUserName = '';
+
+    function setUserName() {
+        const userName = document.getElementById('user-name').value.trim();
+        if (userName) {
+            myUserName = userName;
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('room-controls').style.display = 'block';
+        } else {
+            alert('Please enter your name');
         }
+    }
 
-        function joinRoom() {
-            const roomId = document.getElementById('room-id').value.trim();
-            if (roomId) {
-                console.log('Joining room:', roomId, 'as', myUserName);
-                setupMediaStream(roomId);
-            } else {
-                alert('Please enter a Room ID');
-            }
+    function joinRoom() {
+        const roomId = document.getElementById('room-id').value.trim();
+        if (roomId) {
+            console.log('Joining room:', roomId, 'as', myUserName);
+            setupMediaStream(roomId);
+        } else {
+            alert('Please enter a Room ID');
         }
+    }
 
-        function setupMediaStream(roomId) {
-            navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            }).then(stream => {
-                myStream = stream;
-                addVideoStream(createVideoElement(myUserName), stream);
+    function setupMediaStream(roomId) {
+        navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        }).then(stream => {
+            myStream = stream;
+            addVideoStream(createVideoElement(myUserName), stream);
 
-                myPeer.on('call', call => {
-                    call.answer(stream);
-                    const video = createVideoElement();
-                    call.on('stream', userVideoStream => {
-                        addVideoStream(video, userVideoStream);
-                    });
-                });
-
-                socket.emit('join-room', roomId, myPeer.id, myUserName);
-
-                socket.on('user-connected', (userId, userName) => {
-                    console.log('User connected:', userId, userName);
-                    connectToNewUser(userId, stream, userName);
+            myPeer.on('call', call => {
+                call.answer(stream);
+                const video = createVideoElement();
+                call.on('stream', userVideoStream => {
+                    addVideoStream(video, userVideoStream);
                 });
             });
-        }
 
-        function createVideoElement(userName = '') {
-            const videoContainer = document.createElement('div');
-            videoContainer.className = 'video-container';
-            const video = document.createElement('video');
-            video.muted = userName === myUserName;
-            if (userName) {
-                const nameTag = document.createElement('div');
-                nameTag.className = 'user-name';
-                nameTag.textContent = userName;
-                videoContainer.appendChild(nameTag);
-            }
-            videoContainer.appendChild(video);
-            return videoContainer;
-        }
+            socket.emit('join-room', roomId, myPeer.id, myUserName);
 
-        function connectToNewUser(userId, stream, userName) {
-            const call = myPeer.call(userId, stream);
-            const video = createVideoElement(userName);
-            call.on('stream', userVideoStream => {
-                addVideoStream(video, userVideoStream);
+            socket.on('user-connected', (userId, userName) => {
+                console.log('User connected:', userId, userName);
+                connectToNewUser(userId, stream, userName);
             });
-            call.on('close', () => {
-                video.remove();
+        });
+    }
+
+    function createVideoElement(userName = '') {
+        const videoContainer = document.createElement('div');
+        videoContainer.className = 'video-container';
+        const video = document.createElement('video');
+        video.muted = userName === myUserName;
+        if (userName) {
+            const nameTag = document.createElement('div');
+            nameTag.className = 'user-name';
+            nameTag.textContent = userName;
+            videoContainer.appendChild(nameTag);
+        }
+        videoContainer.appendChild(video);
+        return videoContainer;
+    }
+
+    function connectToNewUser(userId, stream, userName) {
+        const call = myPeer.call(userId, stream);
+        const video = createVideoElement(userName);
+        call.on('stream', userVideoStream => {
+            addVideoStream(video, userVideoStream);
+        });
+        call.on('close', () => {
+            video.remove();
+        });
+        peers[userId] = call;
+    }
+
+    function addVideoStream(videoElement, stream) {
+        videoElement.querySelector('video').srcObject = stream;
+        videoElement.querySelector('video').addEventListener('loadedmetadata', () => {
+            videoElement.querySelector('video').play();
+        });
+        document.getElementById('video-grid').append(videoElement);
+    }
+
+    socket.on('user-disconnected', userId => {
+        if (peers[userId]) peers[userId].close();
+    });
+
+    myPeer.on('open', id => {
+        console.log('My peer ID is:', id);
+    });
+
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Connection Error:', error);
+        alert(`Failed to connect to the server: ${error.message}. Please check the server URL and try again.`);
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket Error:', error);
+    });
+
+    myPeer.on('error', (error) => {
+        console.error('PeerJS Error:', error);
+        alert(`PeerJS Error: ${error.type}. ${error.message}`);
+    });
+
+    function checkServerAvailability() {
+        fetch(serverURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log('Server is available');
+            })
+            .catch(error => {
+                console.error('Server availability check failed:', error);
+                alert(`Server seems to be unavailable. Error: ${error.message}`);
             });
-            peers[userId] = call;
-        }
+    }
 
-        function addVideoStream(videoElement, stream) {
-            videoElement.querySelector('video').srcObject = stream;
-            videoElement.querySelector('video').addEventListener('loadedmetadata', () => {
-                videoElement.querySelector('video').play();
-            });
-            videoGrid.append(videoElement);
-        }
-
-        socket.on('user-disconnected', userId => {
-            if (peers[userId]) peers[userId].close();
-        });
-
-        myPeer.on('open', id => {
-            console.log('My peer ID is:', id);
-        });
-
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('Connection Error:', error);
-            alert(`Failed to connect to the server: ${error.message}. Please check the server URL and try again.`);
-        });
-
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        socket.on('error', (error) => {
-            console.error('Socket Error:', error);
-        });
-
-        myPeer.on('error', (error) => {
-            console.error('PeerJS Error:', error);
-            alert(`PeerJS Error: ${error.type}. ${error.message}`);
-        });
-
-        // Add this function to check server availability
-        function checkServerAvailability() {
-            fetch(serverURL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    console.log('Server is available');
-                })
-                .catch(error => {
-                    console.error('Server availability check failed:', error);
-                    alert(`Server seems to be unavailable. Error: ${error.message}`);
-                });
-        }
-
-        // Call this function when the page loads
-        checkServerAvailability();
-    </script>
+    checkServerAvailability();
   </body>
 </html>
