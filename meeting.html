@@ -77,9 +77,9 @@
     <div id="video-grid"></div>
     <script>
     const MAX_PARTICIPANTS = 12;
-    const serverURL = "https://vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app";
+    const serverURL = "wss://vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app";
     const socket = io(serverURL, {
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
         upgrade: false,
         reconnectionAttempts: 5,
         timeout: 10000
@@ -192,12 +192,8 @@
     });
 
     socket.on('connect_error', (error) => {
-        console.error('Connection Error:', error);
+        console.error('Socket.IO Connection Error:', error);
         alert(`Failed to connect to the server: ${error.message}. Please check the server URL and try again.`);
-    });
-
-    socket.on('error', (error) => {
-        console.error('Socket Error:', error);
     });
 
     myPeer.on('error', (error) => {
