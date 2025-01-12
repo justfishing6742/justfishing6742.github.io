@@ -81,7 +81,7 @@
         const socket = io(serverURL, {
             withCredentials: true,
             transports: ['websocket', 'polling'],
-            upgrade: true
+            upgrade: false
         });
         const videoGrid = document.getElementById('video-grid');
         const myPeer = new Peer(undefined, {
@@ -191,6 +191,15 @@
         socket.on('connect_error', (error) => {
             console.error('Connection Error:', error);
             alert('Failed to connect to the server. Please try again later.');
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        // Add this new event listener
+        socket.on('error', (error) => {
+            console.error('Socket Error:', error);
         });
     </script>
   </body>
