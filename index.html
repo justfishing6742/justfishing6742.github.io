@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Room</title>
+    <title>Create a Room</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -40,8 +40,8 @@
             background-color: #0056b3;
         }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Create a Room</h1>
     <input type="text" id="roomNameInput" placeholder="Enter room name" required>
     <button id="createRoomButton">Enter</button>
@@ -61,5 +61,5 @@
             window.location.href = `meeting.html?room=${encodeURIComponent(roomName)}`;
         });
     </script>
-</body>
+  </body>
 </html>
