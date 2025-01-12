@@ -75,6 +75,7 @@
         <button onclick="joinRoom()">Join Room</button>
     </div>
     <div id="video-grid"></div>
+    <script>
     const MAX_PARTICIPANTS = 12;
     const serverURL = "https://vercel-v5-kdsv-i25cp9e16-cullen-harrisons-projects.vercel.app";
     const socket = io(serverURL, {
@@ -219,5 +220,6 @@
     }
 
     checkServerAvailability();
+    </script>
   </body>
 </html>
