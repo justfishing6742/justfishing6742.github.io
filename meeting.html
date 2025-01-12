@@ -22,7 +22,7 @@
     <div id="video-grid"></div>
     <script>
         const MAX_PARTICIPANTS = 12;
-        const serverURL = "https://vercel-v5-kdsv-6zg9wen8g-cullen-harrisons-projects.vercel.app"; // Replace with your actual Vercel deployment URL
+        const serverURL = "https://vercel-v5-kdsv-6zg9wen8g-cullen-harrisons-projects.vercel.app"; // Your actual Vercel deployment URL
         const socket = io(serverURL, {
             withCredentials: true,
             transports: ['websocket', 'polling'],
@@ -30,10 +30,14 @@
         });
         const videoGrid = document.getElementById('video-grid');
         const myPeer = new Peer(undefined, {
-            host: '/',
-            port: '443',
-            path: '/peerjs/myapp'
+            host: 'vercel-v5-kdsv-6zg9wen8g-cullen-harrisons-projects.vercel.app',
+            port: 443,
+            path: '/peerjs/myapp',
+            secure: true
         });
+        const myVideo = document.createElement('video');
+        myVideo.muted = true;
+        const peers = {};
         const myVideo = document.createElement('video');
         myVideo.muted = true;
         const peers = {};
